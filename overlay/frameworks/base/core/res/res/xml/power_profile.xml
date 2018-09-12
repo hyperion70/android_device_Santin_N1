@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device name="Android">
+    <item name="none">0</item>
+    <item name="screen.on">97.2</item>
+    <item name="screen.full">220</item>
+    <item name="bluetooth.active">20</item>
+    <item name="bluetooth.on">1.2</item>
+    <item name="wifi.on">0.7</item>
+    <item name="wifi.active">218</item>
+    <item name="wifi.scan">28.9</item>
+    <item name="dsp.audio">12</item>
+    <item name="dsp.video">50</item>
+    <item name="camera.flashlight">663.86</item>
+    <item name="camera.avg">583.17</item>
+    <item name="radio.active">150</item>
+    <item name="radio.scanning">139</item>
+    <item name="gps.on">50</item>
+    <array name="radio.on">
+        <value>2.26</value>
+    </array>
+    <item name="modem.controller.idle">0</item>
+    <item name="modem.controller.rx">0</item>
+    <item name="modem.controller.tx">0</item>
+    <item name="modem.controller.voltage">0</item>
+    <array name="cpu.clusters.cores">
+        <value>1</value>
+    </array>
+    <array name="cpu.speeds.cluster0">
+        <value>400000</value>
+    </array>
+    <item name="cpu.idle">100</item>
+    <array name="cpu.active">
+        <value>100</value>
+    </array>
+    <array name="cpu.active.cluster0">
+        <value>0.1</value>
+    </array>
+    <item name="cpu.idle">0.1</item>
+    <item name="battery.capacity">5100</item>
+    <item name="wifi.controller.idle">1.26</item>
+    <item name="wifi.controller.rx">156.35</item>
+    <item name="wifi.controller.tx">234.21</item>
+    <array name="wifi.controller.tx_levels" />
+    <item name="wifi.controller.voltage">0</item>
+    <array name="wifi.batchedscan">
+        <value>.2</value>
+        <value>2</value>
+        <value>20</value>
+        <value>200</value>
+        <value>500</value>
+  </array>
+</device>

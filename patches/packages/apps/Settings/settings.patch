@@ -1,0 +1,122 @@
+diff --git a/res/values-ru/strings.xml b/res/values-ru/strings.xml
+index c234680..4aae05e 100644
+--- a/res/values-ru/strings.xml
++++ b/res/values-ru/strings.xml
+@@ -1042,6 +1042,7 @@
+     <string name="system_update_settings_list_item_summary" msgid="3853057315907710747"></string>
+     <string name="firmware_version" msgid="4801135784886859972">"Версия Android"</string>
+     <string name="security_patch" msgid="8438384045870296634">"Последнее обновление системы безопасности"</string>
++    <string name="author_info">"Автор сборки"</string>
+     <string name="model_info" msgid="1952009518045740889">"Модель"</string>
+     <string name="fcc_equipment_id" msgid="149114368246356737">"Идентификатор оборудования"</string>
+     <string name="baseband_version" msgid="1848990160763524801">"Прошивка модуля связи"</string>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index b8121fb..239d253 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -33,6 +33,8 @@
+     <!-- Device Info --> <skip />
+     <!-- Device Info screen. Used for a status item's value when the proper value is not known -->
+     <string name="device_info_default">Unknown</string>
++    <!-- Device Info screen. Used for a status item's value when the proper value is not known -->
++    <string name="author_info_default">hyperion70 (4PDA.ru)</string>
+     <!-- [CHAR LIMIT=NONE] Device Info screen. Countdown for user taps to enable development settings -->
+     <plurals name="show_dev_countdown">
+         <item quantity="one">You are now <xliff:g id="step_count">%1$d</xliff:g> step away from being a developer.</item>
+@@ -2375,6 +2377,8 @@
+     <string name="firmware_version">Android version</string>
+     <!-- About phone screen, status item label  [CHAR LIMIT=60] -->
+     <string name="security_patch">Android security patch level</string>
++    <!-- About phone screen, status item label  [CHAR LIMIT=60] -->
++    <string name="author_info">Build author</string>
+     <!-- About phone screen, status item label  [CHAR LIMIT=40] -->
+     <string name="model_info">Model</string>
+     <!-- About phone screen, fcc equipment id label  [CHAR LIMIT=40] -->
+diff --git a/res/xml/device_info_settings.xml b/res/xml/device_info_settings.xml
+index d59486c..18d2d84 100644
+--- a/res/xml/device_info_settings.xml
++++ b/res/xml/device_info_settings.xml
+@@ -19,32 +19,6 @@
+         xmlns:settings="http://schemas.android.com/apk/res-auto"
+         android:title="@string/about_settings">
+ 
+-        <!-- System update settings - launches activity -->
+-        <PreferenceScreen android:key="system_update_settings"
+-                android:title="@string/system_update_settings_list_item_title"
+-                android:summary="@string/system_update_settings_list_item_summary">
+-            <intent android:action="android.settings.SYSTEM_UPDATE_SETTINGS" />
+-        </PreferenceScreen>
+-
+-
+-        <PreferenceScreen android:key="additional_system_update_settings"
+-                          android:title="@string/additional_system_update_settings_list_item_title">
+-            <intent android:action="android.intent.action.MAIN"
+-                    android:targetPackage="@string/additional_system_update"
+-                    android:targetClass="@string/additional_system_update_menu" />
+-        </PreferenceScreen>
+-
+-        <!-- LineageOS Updates -->
+-        <cyanogenmod.preference.SelfRemovingPreference android:key="cm_updates"
+-                android:title="@string/cmupdate_settings_title"
+-                android:summary="@string/system_update_settings_list_item_summary"
+-                cm:requiresOwner="true"
+-                cm:requiresPackage="org.lineageos.updater">
+-            <intent android:action="android.intent.action.MAIN"
+-                    android:targetPackage="org.lineageos.updater"
+-                    android:targetClass="org.lineageos.updater.UpdatesActivity" />
+-        </cyanogenmod.preference.SelfRemovingPreference>
+-
+         <!-- Device status - launches activity -->
+         <PreferenceScreen android:key="status_info"
+                 android:title="@string/device_status"
+@@ -137,6 +111,14 @@
+                         android:data="https://source.android.com/security/bulletin/" />
+         </PreferenceScreen>
+ 
++        <!-- Author Info -->
++        <PreferenceScreen android:key="author_info"
++                android:title="@string/author_info"
++                android:summary="@string/author_info_default">
++                <intent android:action="android.intent.action.VIEW"
++                        android:data="http://4pda.ru/forum/index.php?showuser=2599272" />
++        </PreferenceScreen>
++
+         <!-- Device FCC equipment id -->
+         <com.android.settings.DividerPreference
+                 android:key="fcc_equipment_id"
+diff --git a/src/com/android/settings/DeviceInfoSettings.java b/src/com/android/settings/DeviceInfoSettings.java
+index d8394dd..1dba1f5 100644
+--- a/src/com/android/settings/DeviceInfoSettings.java
++++ b/src/com/android/settings/DeviceInfoSettings.java
+@@ -69,6 +69,7 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
+     private static final String KEY_BASEBAND_VERSION = "baseband_version";
+     private static final String KEY_FIRMWARE_VERSION = "firmware_version";
+     private static final String KEY_SECURITY_PATCH = "security_patch";
++    private static final String KEY_AUTHOR_INFO = "author_info";
+     private static final String KEY_UPDATE_SETTING = "additional_system_update_settings";
+     private static final String KEY_EQUIPMENT_ID = "fcc_equipment_id";
+     private static final String PROPERTY_EQUIPMENT_ID = "ro.ril.fccid";
+@@ -153,6 +154,9 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
+         setExplicitValueSummary(KEY_MOD_API_LEVEL, constructApiLevelString());
+         findPreference(KEY_MOD_API_LEVEL).setEnabled(true);
+ 
++	String author_info = getResources().getString(R.string.author_info_default);
++	setStringSummary(KEY_AUTHOR_INFO, author_info);	
++
+         if (!SELinux.isSELinuxEnabled()) {
+             String status = getResources().getString(R.string.selinux_status_disabled);
+             setStringSummary(KEY_SELINUX_STATUS, status);
+@@ -331,6 +335,13 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
+                         + "queryIntentActivities() returns empty" );
+                 return true;
+             }
++        } else if (preference.getKey().equals(KEY_AUTHOR_INFO)) {
++            if (getPackageManager().queryIntentActivities(preference.getIntent(), 0).isEmpty()) {
++                // Don't send out the intent to stop crash
++                Log.w(LOG_TAG, "Stop click action on " + KEY_AUTHOR_INFO + ": "
++                        + "queryIntentActivities() returns empty" );
++                return true;
++            }
+         } else if (preference.getKey().equals(KEY_DEVICE_FEEDBACK)) {
+             sendFeedback();
+         } else if(preference.getKey().equals(KEY_SYSTEM_UPDATE_SETTINGS)) {

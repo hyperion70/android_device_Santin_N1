@@ -1,0 +1,20 @@
+From 643a2133a12fce00b6c73a31f2c39a6cc437d1c4 Mon Sep 17 00:00:00 2001
+From: mdeejay <mdjrussia@gmail.com>
+Date: Mon, 3 Jul 2017 01:23:30 +0700
+Subject: changes for MTK
+
+Change-Id: I8252ed4d21af81eea7fb268c1dfa211fe05e906f
+
+diff --git a/res/values/cm_strings.xml b/res/values/cm_strings.xml
+index 60393be67..48fcb1890 100644
+--- a/res/values/cm_strings.xml
++++ b/res/values/cm_strings.xml
+@@ -106,7 +106,7 @@
+ 
+     <!-- Max brightness -->
+     <string name="pref_camera_max_brightness_title">Bright screen</string>
+-    <string name="pref_camera_max_brightness_default" translatable="false">off</string>
++    <string name="pref_camera_max_brightness_default" translatable="false">on</string>
+ 
+     <!-- Touch focus duration -->
+     <string name="pref_camera_focustime_title">Touch focus duration</string>

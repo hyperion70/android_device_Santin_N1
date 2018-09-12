@@ -1,0 +1,20 @@
+From 575820163d9980d36623b0244f0c3acefa72c1db Mon Sep 17 00:00:00 2001
+From: mdeejay <mdjrussia@gmail.com>
+Date: Mon, 3 Jul 2017 01:24:13 +0700
+Subject: changes for MTK
+
+Change-Id: Ic45d1862760403f0ad3e1295d54bca9725ed6873
+
+diff --git a/cm/res/res/values/config.xml b/cm/res/res/values/config.xml
+index a85365f..ebf6914 100644
+--- a/cm/res/res/values/config.xml
++++ b/cm/res/res/values/config.xml
+@@ -57,7 +57,7 @@
+     <integer name="config_nightColorTemperature">4800</integer>
+     <integer name="config_outdoorAmbientLux">12000</integer>
+     <integer name="config_outdoorAmbientLuxHysteresis">1500</integer>
+-    <integer name="config_defaultLiveDisplayMode">2</integer>
++    <integer name="config_defaultLiveDisplayMode">0</integer>
+ 
+     <!-- These values should map to the true min and max
+          that the backend is capable of adjusting to. This

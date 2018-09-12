@@ -1,0 +1,50 @@
+From 038f1200a8b69bb7255a95d6459be7b588439144 Mon Sep 17 00:00:00 2001
+From: mdeejay <mdjrussia@gmail.com>
+Date: Mon, 3 Jul 2017 01:26:11 +0700
+Subject: changes for MTK
+
+Change-Id: I5623b6d1804387d39b37c2fc55c0d91ef1520e5e
+
+diff --git a/src/java/com/android/internal/telephony/uicc/IccFileHandler.java b/src/java/com/android/internal/telephony/uicc/IccFileHandler.java
+index 6f944bda..4b43bf26 100644
+--- a/src/java/com/android/internal/telephony/uicc/IccFileHandler.java
++++ b/src/java/com/android/internal/telephony/uicc/IccFileHandler.java
+@@ -291,7 +291,7 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
+                         fileid, 0, onLoaded);
+ 
+         mCi.iccIOForApp(COMMAND_GET_RESPONSE, fileid, getEFPath(fileid),
+-                        0, 0, 0, null, null, mAid, response);
++                        0, 0, GET_RESPONSE_EF_SIZE_BYTES, null, null, mAid, response);
+     }
+ 
+     /**
+diff --git a/src/java/com/android/internal/telephony/uicc/UiccTlvData.java b/src/java/com/android/internal/telephony/uicc/UiccTlvData.java
+index 17f594c0..5cb57a21 100644
+--- a/src/java/com/android/internal/telephony/uicc/UiccTlvData.java
++++ b/src/java/com/android/internal/telephony/uicc/UiccTlvData.java
+@@ -1,13 +1,9 @@
+ package com.android.internal.telephony.uicc;
+ 
+-import android.telephony.Rlog;
+-
+ /**
+  * UICC TLV Data Parser according to ETSI TS 102 221 spec.
+  */
+ public class UiccTlvData {
+-    private static final String LOG_TAG = "UiccTlvData";
+-
+     private static final int TLV_FORMAT_ID = 0x62;
+ 
+     private static final int TAG_FILE_DESCRIPTOR = 0x82;
+@@ -85,9 +81,8 @@ public class UiccTlvData {
+                         break;
+ 
+                     default:
+-                        Rlog.d(LOG_TAG, "Unknown tag 0x" + String.format("%02X", currentTag));
+-                        currentLocation = parsedData.parseSomeTag(data, currentLocation);
+-                        break;
++                        //Unknown TAG
++                        throw new IccFileTypeMismatch();
+                 }
+             }
+ 
