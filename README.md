@@ -18,7 +18,7 @@ Camera  | Main 13MP / Front 16MP, autofocus, LED flash
 
 Copyright 2018 - The Lineage-OS Project.
 
-Thanks to xen0n, Zormax, darklord4822, lalitjoshi06, olegsvs, Decker, danielhk, mdeejay, MAD, SRT.
+Thanks to xen0n, Zormax, darklord4822, lalitjoshi06, Adryy, olegsvs, Decker, danielhk, mdeejay, MAD, SRT.
 
 
 Working:
@@ -26,8 +26,10 @@ Working:
 2. Backlight
 3. Fingerprint
 4. Audio
-5. Camera
+5. Camera (photo / video)
 6. WiFi
-7. FM 
+7. FM radio
 8. Proximity & light sensors
-9. GPS partially
+9. Accelerometer
+10. GPS and AGPS
+11. RIL partially
