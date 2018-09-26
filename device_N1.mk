@@ -200,12 +200,8 @@ PRODUCT_PACKAGES += \
     libion
 
 # TODO: RIL
-PRODUCT_PACKAGES += \
-    libccci_util \
-    librilmtk \
-    librilmtkmd2 \
-    mtkrild \
-    rilproxy
+# PRODUCT_PACKAGES += \
+    libccci_util
 
 # Telephony
 PRODUCT_COPY_FILES += \
