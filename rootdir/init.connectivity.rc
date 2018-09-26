@@ -16,7 +16,7 @@ on post-fs-data
     mkdir /data/gps_mnl 0771 gps system
     mkdir /data/misc/gps 0770 gps system
     chown gps system /data/mpe_mnl
-    chmod 0775 /vendor/xbin/MPED
+    chmod 0775 /vendor/bin/MPED
     chown gps gps /sys/class/gpsdrv/gps/pwrctl
     chown gps gps /sys/class/gpsdrv/gps/suspend
     chown gps gps /sys/class/gpsdrv/gps/state

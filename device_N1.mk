@@ -144,8 +144,10 @@ PRODUCT_PACKAGES += \
 
 # CM14 mtk symbols
 PRODUCT_PACKAGES += \
-    mtk_symbols
-
+    libshim_bio \
+    libshim_ui \
+    libshim_aud \
+    libshim_ifc
 
 # Disable adb security
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
@@ -156,9 +158,9 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
 	ro.debuggable=1 \
 	persist.service.acm.enable=0 \
 	camera.disable_zsl_mode=1 \
-    persist.radio.lte.chip=0 \
+	persist.radio.lte.chip=0 \
 	ro.config.low_ram=false \
-    persist.sys.usb.config=mtp
+	persist.sys.usb.config=mtp
 
 # IO Scheduler
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -167,7 +169,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # Media
 PRODUCT_PROPERTY_OVERRIDES += \
     media.stagefright.legacyencoder=0
-    
+
+PRODUCT_PACKAGES += \
+    libstagefright_color_conversion
+
 # Properties
 PRODUCT_PROPERTY_OVERRIDES += \
 	persist.radio.apn_delay=5000 \

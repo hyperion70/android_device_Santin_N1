@@ -28,7 +28,9 @@ on early-init
     chmod 0755 /sys/kernel/debug
 
 on init
-    export LD_PRELOAD "mtk_symbols.so"
+
+    export LD_SHIM_LIBS "/vendor/lib/libvtmal.so|libshim_aud.so:/vendor/bin/program_binary_builder|libshim_ui.so:/vendor/lib/mtk-ril.so|libshim_ifc.so:/system/lib/libnetutils.so|libshim_ifc.so"
+
     # Support legacy paths
     symlink /sdcard /mnt/sdcard
 
