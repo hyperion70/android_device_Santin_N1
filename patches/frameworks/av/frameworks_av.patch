@@ -1,41 +1,44 @@
-From 2f7c9f0e3d3a1063be5dfe60a4317f45805b0fd2 Mon Sep 17 00:00:00 2001
-From: darklord4822 <darklord4722@gmail.com>
-Date: Sat, 10 Feb 2018 22:52:19 +0000
-Subject: [PATCH] changes for MTK
+From cb01880a55597e08a1a1bfe7d76c24250eb5ee54 Mon Sep 17 00:00:00 2001
+From: hyperion70 <bmaximov71@gmail.com>
+Date: Fri, 28 Sep 2018 14:17:13 +0300
+Subject: [PATCH] frameworks_av
 
-Change-Id: I7f02293cb22415ae208536744fc0e8320751f72d
+Change-Id: Icaac9e66b18e87953b1c2c7822aec6590199fa05
 ---
  include/media/AudioSystem.h                        |   8 +
  include/media/IAudioFlinger.h                      |   8 +
  include/media/IAudioPolicyService.h                |   2 +
- include/media/IOMX.h                               |   7 +
- include/media/stagefright/CameraSource.h           |   4 +
- media/libmedia/AudioSystem.cpp                     | 108 +++++++
+ include/media/IOMX.h                               |   5 +
+ include/media/stagefright/CameraSource.h           |   2 +
+ media/libmedia/Android.mk                          |   3 +-
+ media/libmedia/AudioSystem.cpp                     | 107 +++++++
  media/libmedia/IAudioFlinger.cpp                   | 213 +++++++++++++
- media/libmedia/IAudioPolicyService.cpp             |  30 +-
- .../libmediaplayerservice/StagefrightRecorder.cpp  |  28 ++
- media/libstagefright/ACodec.cpp                    |  58 ++++
+ media/libmedia/IAudioPolicyService.cpp             |  23 ++
+ media/libmedia/vtservice.cpp                       |  24 ++
+ .../libmediaplayerservice/StagefrightRecorder.cpp  |  22 ++
+ media/libstagefright/ACodec.cpp                    |  53 ++++
  media/libstagefright/Android.mk                    |   6 +
- media/libstagefright/CameraSource.cpp              |  27 ++
+ media/libstagefright/CameraSource.cpp              |  22 +-
  media/libstagefright/colorconversion/Android.mk    |   2 +
  media/libstagefright/omx/OMX.cpp                   |  18 ++
- .../omx/SoftVideoDecoderOMXComponent.cpp           |  13 +
- services/audioflinger/AudioFlinger.cpp             | 170 ++++++++++
- services/audioflinger/AudioFlinger.h               |  11 +-
- services/audioflinger/Threads.cpp                  |   2 +
+ .../omx/SoftVideoDecoderOMXComponent.cpp           |  17 +-
+ services/audioflinger/AudioFlinger.cpp             | 166 ++++++++++
+ services/audioflinger/AudioFlinger.h               |   8 +
+ services/audioflinger/Threads.cpp                  |  15 -
  services/audiopolicy/Android.mk                    |  27 ++
  services/audiopolicy/AudioPolicyInterface.h        |   4 +
  .../common/managerdefinitions/Android.mk           |   9 +
  .../engine/interface/AudioPolicyManagerObserver.h  |   3 +
  services/audiopolicy/enginedefault/Android.mk      |   9 +
- services/audiopolicy/enginedefault/src/Engine.cpp  |   9 +
- .../managerdefault/AudioPolicyManager.cpp          | 343 +++++++++++++++++++++
+ services/audiopolicy/enginedefault/src/Engine.cpp  |   6 +
+ .../managerdefault/AudioPolicyManager.cpp          | 335 ++++++++++++++++++++-
  .../managerdefault/AudioPolicyManager.h            |  22 ++
- .../audiopolicy/service/AudioPolicyClientImpl.cpp  |   9 +
- .../service/AudioPolicyInterfaceImpl.cpp           |  14 +
- .../audiopolicy/service/AudioPolicyService.cpp     |  49 ++-
+ .../audiopolicy/service/AudioPolicyClientImpl.cpp  |   5 +
+ .../service/AudioPolicyInterfaceImpl.cpp           |   9 +
+ .../audiopolicy/service/AudioPolicyService.cpp     |  40 ++-
  services/audiopolicy/service/AudioPolicyService.h  |  14 +
- 30 files changed, 1224 insertions(+), 3 deletions(-)
+ 32 files changed, 1180 insertions(+), 27 deletions(-)
+ create mode 100644 media/libmedia/vtservice.cpp
 
 diff --git a/include/media/AudioSystem.h b/include/media/AudioSystem.h
 index 268791e..86c64c1 100644
@@ -76,7 +79,7 @@ index 096f7ef..64152dd 100644
  
  
 diff --git a/include/media/IAudioPolicyService.h b/include/media/IAudioPolicyService.h
-index 06bf4b8..06b40d2 100644
+index 3004345..e6bb864 100644
 --- a/include/media/IAudioPolicyService.h
 +++ b/include/media/IAudioPolicyService.h
 @@ -123,6 +123,8 @@ public:
@@ -89,40 +92,50 @@ index 06bf4b8..06b40d2 100644
      /* List available audio ports and their attributes */
      virtual status_t listAudioPorts(audio_port_role_t role,
 diff --git a/include/media/IOMX.h b/include/media/IOMX.h
-index 1c39b9c..cda2204 100644
+index 1c39b9c..12e895a 100644
 --- a/include/media/IOMX.h
 +++ b/include/media/IOMX.h
-@@ -233,6 +233,13 @@ struct omx_message {
+@@ -233,6 +233,11 @@ struct omx_message {
              OMX_U32 range_length;
              OMX_U32 flags;
              OMX_TICKS timestamp;
-+#ifdef MTK_HARDWARE
 +            //for transmitting proprietary data
 +            OMX_U32 token_tick;
 +            OMX_U32 token_VA;
 +            OMX_U32 token_PA;
 +            OMX_U32 token_FD;
-+#endif
          } extended_buffer_data;
  
          // if type == FRAME_RENDERED
 diff --git a/include/media/stagefright/CameraSource.h b/include/media/stagefright/CameraSource.h
-index c2e75a6..31afc33 100644
+index c2e75a6..2cb5739 100644
 --- a/include/media/stagefright/CameraSource.h
 +++ b/include/media/stagefright/CameraSource.h
-@@ -317,6 +317,10 @@ private:
+@@ -317,6 +317,8 @@ private:
      CameraSource &operator=(const CameraSource &);
  };
  
-+#ifdef MTK_HARDWARE
 +int32_t getColorFormatByMTK(const char* colorFormat);
-+#endif
 +
  }  // namespace android
  
  #endif  // CAMERA_SOURCE_H_
+diff --git a/media/libmedia/Android.mk b/media/libmedia/Android.mk
+index df4e4b6..ac7185b 100644
+--- a/media/libmedia/Android.mk
++++ b/media/libmedia/Android.mk
+@@ -73,7 +73,8 @@ LOCAL_SRC_FILES:= \
+     Visualizer.cpp \
+     MemoryLeakTrackUtil.cpp \
+     StringArray.cpp \
+-    AudioPolicy.cpp
++    AudioPolicy.cpp \
++    vtservice.cpp
+ 
+ LOCAL_SHARED_LIBRARIES := \
+ 	libui liblog libcutils libutils libbinder libsonivox libicuuc libicui18n libexpat \
 diff --git a/media/libmedia/AudioSystem.cpp b/media/libmedia/AudioSystem.cpp
-index 35d3a7c..a4f8fa2 100644
+index 35d3a7c..5e47b07 100644
 --- a/media/libmedia/AudioSystem.cpp
 +++ b/media/libmedia/AudioSystem.cpp
 @@ -26,6 +26,9 @@
@@ -135,33 +148,33 @@ index 35d3a7c..a4f8fa2 100644
  // ----------------------------------------------------------------------------
  
  namespace android {
-@@ -1335,4 +1338,109 @@ void AudioSystem::AudioPolicyServiceClient::binderDied(const wp<IBinder>& who __
+@@ -1335,4 +1338,108 @@ void AudioSystem::AudioPolicyServiceClient::binderDied(const wp<IBinder>& who __
      ALOGW("AudioPolicyService server died!");
  }
  
 +//add , for EM mode
 +status_t AudioSystem::GetEMParameter(void *ptr,size_t len)
 +{
-+#ifdef MTK_HARDWARE
++
 +    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
 +    if (af == 0) return PERMISSION_DENIED;
 +    return af->GetEMParameter(ptr,len);
-+#endif
++
 +    return OK;
 +}
 +
 +status_t AudioSystem::SetEMParameter(void *ptr,size_t len)
 +{
-+#ifdef MTK_HARDWARE
++
 +    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
 +    if (af == 0) return PERMISSION_DENIED;
 +    return af->SetEMParameter(ptr,len);
-+#endif
++
 +}
 +
 +status_t AudioSystem::SetAudioCommand(int par1,int par2)
 +{
-+#ifdef MTK_HARDWARE
++
 +    status_t af_status;
 +    ALOGD("AudioSystem::SetAudioCommand");
 +    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
@@ -183,13 +196,12 @@ index 35d3a7c..a4f8fa2 100644
 +
 +    return af_status;
 +
-+#endif
 +    return OK;
 +}
 +
 +status_t AudioSystem::GetAudioCommand(int par1,int* par2)
 +{
-+#ifdef MTK_HARDWARE
++
 +    ALOGD("AudioSystem::GetAudioCommand");
 +    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
 +    if (af == 0)
@@ -198,13 +210,13 @@ index 35d3a7c..a4f8fa2 100644
 +        return PERMISSION_DENIED;
 +    }
 +    *par2 =  af->GetAudioCommand(par1);
-+#endif
++
 +    return NO_ERROR;
 +}
 +
 +status_t AudioSystem::SetAudioData(int par1,size_t byte_len,void *ptr)
 +{
-+#ifdef MTK_HARDWARE
++
 +    status_t af_status;
 +    ALOGD("SetAudioData");
 +    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
@@ -225,13 +237,13 @@ index 35d3a7c..a4f8fa2 100644
 +    }
 +
 +    return af_status;
-+#endif
++
 +    return OK;
 +}
 +
 +status_t AudioSystem::GetAudioData(int par1,size_t byte_len,void *ptr)
 +{
-+#ifdef MTK_HARDWARE
++
 +    ALOGD("GetAudioData");
 +    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
 +    if (af == 0)
@@ -240,35 +252,34 @@ index 35d3a7c..a4f8fa2 100644
 +        return PERMISSION_DENIED;
 +    }
 +    return af->GetAudioData(par1,byte_len,ptr);
-+#endif
++
 +    return OK;
 +}
 +
  } // namespace android
 diff --git a/media/libmedia/IAudioFlinger.cpp b/media/libmedia/IAudioFlinger.cpp
-index 900d418..c6f3916 100644
+index 900d418..4c49cc9 100644
 --- a/media/libmedia/IAudioFlinger.cpp
 +++ b/media/libmedia/IAudioFlinger.cpp
 @@ -83,6 +83,14 @@ enum {
      GET_AUDIO_HW_SYNC,
      SYSTEM_READY,
      FRAME_COUNT_HAL,
-+    #ifdef MTK_HARDWARE
++
 +    GET_EM_PARAMETER  = 0x7FFF0000,  //Don't call by CTS for security
 +    SET_EM_PARAMETER,
 +    SET_AUDIO_COMMAND,
 +    GET_AUDIO_COMMAND,
 +    SET_AUDIO_DATA,
 +    GET_AUDIO_DATA,
-+#endif
++
  };
  
  #define MAX_ITEMS_PER_LIST 1024
-@@ -929,6 +937,90 @@ public:
-         }
+@@ -930,6 +938,90 @@ public:
          return reply.readInt64();
      }
-+#ifdef MTK_HARDWARE
+ 
 +    virtual status_t GetEMParameter(void *ptr, size_t len)
 +    {
 +        Parcel data, reply;
@@ -351,15 +362,16 @@ index 900d418..c6f3916 100644
 +        }
 +        return reply.readInt32();
 +    }
-+#endif
- 
++
++
  };
  
+ IMPLEMENT_META_INTERFACE(AudioFlinger, "android.media.IAudioFlinger");
 @@ -1449,6 +1541,127 @@ status_t BnAudioFlinger::onTransact(
              reply->writeInt64( frameCountHAL((audio_io_handle_t) data.readInt32()) );
              return NO_ERROR;
          } break;
-+#ifdef MTK_HARDWARE
++
 +        // for EM mode Setting
 +        case GET_EM_PARAMETER:
 +        {
@@ -479,29 +491,26 @@ index 900d418..c6f3916 100644
 +            return NO_ERROR;
 +        } break;
 +#endif
-+#endif
++
          default:
              return BBinder::onTransact(code, data, reply, flags);
      }
 diff --git a/media/libmedia/IAudioPolicyService.cpp b/media/libmedia/IAudioPolicyService.cpp
-index 2dd1611..05fc3e9 100644
+index b9a578e..4663057 100644
 --- a/media/libmedia/IAudioPolicyService.cpp
 +++ b/media/libmedia/IAudioPolicyService.cpp
-@@ -76,6 +76,9 @@ enum {
+@@ -76,6 +76,7 @@ enum {
      SET_AUDIO_PORT_CALLBACK_ENABLED,
      SET_MASTER_MONO,
      GET_MASTER_MONO,
-+#ifdef MTK_HARDWARE
 +    SET_POLICYMANAGER_PARAMETERS,
-+#endif
      LIST_AUDIO_SESSIONS,
  };
  
-@@ -510,6 +513,20 @@ public:
+@@ -510,6 +511,18 @@ public:
          return status;
      }
  
-+#ifdef MTK_HARDWARE
 +    virtual status_t SetPolicyManagerParameters(int par1,int par2 ,int par3,int par4)
 +    {
 +        Parcel data, reply;
@@ -513,18 +522,14 @@ index 2dd1611..05fc3e9 100644
 +        remote()->transact(SET_POLICYMANAGER_PARAMETERS, data, &reply);
 +        return static_cast <status_t> (reply.readInt32());
 +    }
-+#endif
 +
      virtual bool isOffloadSupported(const audio_offload_info_t& info)
      {
          Parcel data, reply;
-@@ -1164,7 +1181,18 @@ status_t BnAudioPolicyService::onTransact(
-             delete[] descriptors;
+@@ -1173,6 +1186,16 @@ status_t BnAudioPolicyService::onTransact(
              return status;
          }
--
-+        
-+#ifdef MTK_HARDWARE
+ 
 +        case SET_POLICYMANAGER_PARAMETERS: {
 +            CHECK_INTERFACE(IAudioPolicyService, data, reply);
 +            int par1 =data.readInt32();
@@ -534,34 +539,63 @@ index 2dd1611..05fc3e9 100644
 +            reply->writeInt32(SetPolicyManagerParameters(par1,par2,par3,par4));
 +            return NO_ERROR;
 +        } break;
-+#endif
++
          case IS_OFFLOAD_SUPPORTED: {
              CHECK_INTERFACE(IAudioPolicyService, data, reply);
              audio_offload_info_t info = {};
+diff --git a/media/libmedia/vtservice.cpp b/media/libmedia/vtservice.cpp
+new file mode 100644
+index 0000000..cdb0a59
+--- /dev/null
++++ b/media/libmedia/vtservice.cpp
+@@ -0,0 +1,24 @@
++/*
++ * Copyright (C) 2018 Tobias Tefke
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++extern "C" {
++     void _ZN7android12AudioPCMxWayD1Ev() {}
++     void _ZN7android12AudioPCMxWayC1EiPFviPvS1_ES1_() {}
++     void _ZN7android12AudioPCMxWay5startEv() {}
++     void _ZN7android12AudioPCMxWay4stopEv() {}
++     void _ZN7android12AudioPCMxWay4readEPvj() {}
++     void _ZN7android14FindAVCSPSInfoEPhjPNS_7SPSInfoE() {}
++}
 diff --git a/media/libmediaplayerservice/StagefrightRecorder.cpp b/media/libmediaplayerservice/StagefrightRecorder.cpp
-index a6558ab..b1d107d 100644
+index a6558ab..be101e5 100644
 --- a/media/libmediaplayerservice/StagefrightRecorder.cpp
 +++ b/media/libmediaplayerservice/StagefrightRecorder.cpp
 @@ -936,6 +936,14 @@ status_t StagefrightRecorder::start() {
  }
  
  sp<MediaCodecSource> StagefrightRecorder::createAudioSource() {
-+#ifdef MTK_HARDWARE
++
 +    //MTK80721 HDRecord 2011-12-23
 +    if ((mAudioEncoder == AUDIO_ENCODER_AAC || mAudioEncoder == AUDIO_ENCODER_HE_AAC || mAudioEncoder == AUDIO_ENCODER_AAC_ELD) && mSampleRate < 16000)
 +    {
 +        ALOGD("encode profile tuning:encode:%d,samplerate:%d,min smplerate=16K",mAudioEncoder, mSampleRate);
 +        mSampleRate = 16000;
 +    }
-+#endif
++
      int32_t sourceSampleRate = mSampleRate;
  
      if (mCaptureFpsEnable && mCaptureFps >= mFrameRate) {
-@@ -1832,9 +1840,22 @@ status_t StagefrightRecorder::pause() {
+@@ -1832,9 +1840,16 @@ status_t StagefrightRecorder::pause() {
          return OK;
      }
  
-+#ifdef MTK_HARDWARE
 +    if((mOutputFormat == OUTPUT_FORMAT_AMR_NB ||
 +          mOutputFormat == OUTPUT_FORMAT_AMR_WB)
 +          &&mAudioEncoderSource != NULL){
@@ -572,37 +606,32 @@ index a6558ab..b1d107d 100644
          mAudioEncoderSource->pause();
      }
 +    }
-+#else
-+    if (mAudioEncoderSource != NULL) {
-+        mAudioEncoderSource->pause();
-+    }
-+#endif
      if (mVideoEncoderSource != NULL) {
          mVideoEncoderSource->pause();
      }
-@@ -1885,6 +1906,13 @@ status_t StagefrightRecorder::resume() {
+@@ -1885,6 +1900,13 @@ status_t StagefrightRecorder::resume() {
          if (source == nullptr) {
              continue;
          }
-+#ifdef MTK_HARDWARE
++
 +        if (mOutputFormat == OUTPUT_FORMAT_AMR_NB || mOutputFormat == OUTPUT_FORMAT_AMR_WB) {
 +            ALOGD("AMR Recording pause-resume");
 +            mWriter->start();
 +            continue;
 +        }
-+#endif
++
          source->setInputBufferTimeOffset((int64_t)timeOffset);
          source->start();
      }
 diff --git a/media/libstagefright/ACodec.cpp b/media/libstagefright/ACodec.cpp
-index a11494d..8c178c8 100644
+index a11494d..4e872ef 100644
 --- a/media/libstagefright/ACodec.cpp
 +++ b/media/libstagefright/ACodec.cpp
 @@ -212,6 +212,35 @@ struct CodecObserver : public BnOMXObserver {
                              omx_msg.u.extended_buffer_data.timestamp);
                      msg->setInt32(
                              "fence_fd", omx_msg.fenceFd);
-+#ifdef MTK_HARDWARE
++
 +                    msg->setInt32(
 +                            "ticks",
 +                            omx_msg.u.extended_buffer_data.token_tick);
@@ -630,28 +659,27 @@ index a11494d..8c178c8 100644
 +                            "token_FD",
 +                            0);
 +                }
-+#endif
++
                      break;
                  }
  
-@@ -2768,6 +2797,12 @@ status_t ACodec::setupAACCodec(
+@@ -2768,6 +2797,11 @@ status_t ACodec::setupAACCodec(
      if (encoder && isADTS) {
          return -EINVAL;
      }
-+#ifdef MTK_HARDWARE  //Error handling for WhatsApp issue.
++//Error handling for WhatsApp issue.
 +    if (encoder && sampleRate == 44000)
 +    {
 +        sampleRate = 44100;
 +    }
-+#endif
  
      status_t err = setupRawAudioFormat(
              encoder ? kPortIndexInput : kPortIndexOutput,
-@@ -3899,7 +3934,20 @@ status_t ACodec::setupVideoEncoder(
+@@ -3899,6 +3933,16 @@ status_t ACodec::setupVideoEncoder(
  
      video_def->nSliceHeight = sliceHeight;
  
-+#ifdef MTK_HARDWARE //for continus shot feature
++//for continus shot feature
 +    ALOGD("nStride %d, nSliceHeight %d", video_def->nStride, video_def->nSliceHeight);
 +    //support RGB565 and RGB888 size
 +    if( colorFormat == OMX_COLOR_Format16bitRGB565 )
@@ -662,17 +690,12 @@ index a11494d..8c178c8 100644
 +        def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 4);
 +    else
      def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 3) / 2;
-+#else
-+    def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 3) / 2;
-+#endif
  
      float frameRate;
-     if (!msg->findFloat("frame-rate", &frameRate)) {
-@@ -5141,6 +5189,16 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
-                             rect.nWidth = videoDef->nFrameWidth;
+@@ -5142,6 +5186,15 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                              rect.nHeight = videoDef->nFrameHeight;
                          }
-+#ifdef MTK_HARDWARE
+ 
 +                    if (!strncmp(mComponentName.c_str(), "OMX.MTK.", 8) && mOMX->getConfig(
 +                            mNode, (OMX_INDEXTYPE) 0x7f00001c /* OMX_IndexVendorMtkOmxVdecGetCropInfo */,
 +                            &rect, sizeof(rect)) != OK) {
@@ -681,10 +704,10 @@ index a11494d..8c178c8 100644
 +                        rect.nWidth = videoDef->nFrameWidth;
 +                        rect.nHeight = videoDef->nFrameHeight;
 +                    }
-+#endif
- 
++
                          if (rect.nLeft < 0 ||
                              rect.nTop < 0 ||
+                             rect.nLeft + rect.nWidth > videoDef->nFrameWidth ||
 diff --git a/media/libstagefright/Android.mk b/media/libstagefright/Android.mk
 index e708f68..8c313f7 100644
 --- a/media/libstagefright/Android.mk
@@ -703,46 +726,40 @@ index e708f68..8c313f7 100644
  
  LOCAL_MODULE_TAGS := optional
 diff --git a/media/libstagefright/CameraSource.cpp b/media/libstagefright/CameraSource.cpp
-index 8707d96..0184c73 100644
+index 8707d96..73fcfe3 100644
 --- a/media/libstagefright/CameraSource.cpp
 +++ b/media/libstagefright/CameraSource.cpp
-@@ -43,6 +43,9 @@
- #else
+@@ -44,6 +44,8 @@
  #define UNUSED_UNLESS_VERBOSE(x)
  #endif
-+#ifdef MTK_HARDWARE
-+#include "MtkCameraParameters.h"
-+#endif
  
++#include "MtkCameraParameters.h"
++
  namespace android {
  
-@@ -113,10 +116,21 @@ void CameraSourceListener::postRecordingFrameHandleTimestamp(nsecs_t timestamp,
+ static const int64_t CAMERA_SOURCE_TIMEOUT_NS = 3000000000LL;
+@@ -113,10 +115,15 @@ void CameraSourceListener::postRecordingFrameHandleTimestamp(nsecs_t timestamp,
  }
  
  static int32_t getColorFormat(const char* colorFormat) {
-+#ifdef MTK_HARDWARE
+-    if (!colorFormat) {
+-        ALOGE("Invalid color format");
++
 +    if(colorFormat == NULL){
 +        ALOGW("camera colorFrmat is NULL!");
-+        return -1;
-+    }
+         return -1;
+     }
 +    int32_t result = getColorFormatByMTK(colorFormat);
 +    if(result != -1){
 +        return result;
 +    }
-+#else
-     if (!colorFormat) {
-         ALOGE("Invalid color format");
-         return -1;
-     }
-+#endif
  
      if (!strcmp(colorFormat, CameraParameters::PIXEL_FORMAT_YUV420P)) {
         return OMX_COLOR_FormatYUV420Planar;
-@@ -1337,4 +1351,17 @@ void CameraSource::DeathNotifier::binderDied(const wp<IBinder>& who __unused) {
+@@ -1337,4 +1344,15 @@ void CameraSource::DeathNotifier::binderDied(const wp<IBinder>& who __unused) {
      ALOGI("Camera recording proxy died");
  }
  
-+#ifdef MTK_HARDWARE
 +int32_t getColorFormatByMTK(const char* colorFormat) {
 +    ALOGD("getColorFormat(%s)", colorFormat);
 +    if (!strcmp(colorFormat, MtkCameraParameters::PIXEL_FORMAT_YUV420I)) {
@@ -753,7 +770,6 @@ index 8707d96..0184c73 100644
 +    }
 +    return -1;
 +}
-+#endif
 +
  }  // namespace android
 diff --git a/media/libstagefright/colorconversion/Android.mk b/media/libstagefright/colorconversion/Android.mk
@@ -773,14 +789,13 @@ index 0bf9701..904fa68 100644
 +endif
 \ No newline at end of file
 diff --git a/media/libstagefright/omx/OMX.cpp b/media/libstagefright/omx/OMX.cpp
-index d6fb2b2..fec6630 100644
+index d6fb2b2..2cf39fc 100644
 --- a/media/libstagefright/omx/OMX.cpp
 +++ b/media/libstagefright/omx/OMX.cpp
-@@ -724,6 +724,24 @@ OMX_ERRORTYPE OMX::OnFillBufferDone(
-     msg.u.extended_buffer_data.range_length = pBuffer->nFilledLen;
+@@ -725,6 +725,24 @@ OMX_ERRORTYPE OMX::OnFillBufferDone(
      msg.u.extended_buffer_data.flags = pBuffer->nFlags;
      msg.u.extended_buffer_data.timestamp = pBuffer->nTimeStamp;
-+#ifdef MTK_HARDWARE
+ 
 +    //for transmitting proprietary data
 +    msg.u.extended_buffer_data.token_tick = pBuffer->nTickCount;
 +    msg.u.extended_buffer_data.token_VA = 0;
@@ -797,19 +812,27 @@ index d6fb2b2..fec6630 100644
 +            msg.u.extended_buffer_data.token_FD = *(CMPtr+7);
 +        }
 +    }
-+#endif
- 
++
++
      sp<OMX::CallbackDispatcher> callbackDispatcher = findDispatcher(node);
      if (callbackDispatcher != NULL) {
+         callbackDispatcher->post(msg);
 diff --git a/media/libstagefright/omx/SoftVideoDecoderOMXComponent.cpp b/media/libstagefright/omx/SoftVideoDecoderOMXComponent.cpp
-index 409cef7..3591eee 100644
+index 409cef7..b3f777b 100644
 --- a/media/libstagefright/omx/SoftVideoDecoderOMXComponent.cpp
 +++ b/media/libstagefright/omx/SoftVideoDecoderOMXComponent.cpp
-@@ -488,6 +488,18 @@ OMX_ERRORTYPE SoftVideoDecoderOMXComponent::internalSetParameter(
+@@ -488,13 +488,16 @@ OMX_ERRORTYPE SoftVideoDecoderOMXComponent::internalSetParameter(
              uint32_t oldHeight = def->format.video.nFrameHeight;
              uint32_t newWidth = video_def->nFrameWidth;
              uint32_t newHeight = video_def->nFrameHeight;
-+#ifdef MTK_HARDWARE
+-            // We need width, height, stride and slice-height to be non-zero and sensible.
+-            // These values were chosen to prevent integer overflows further down the line, and do
+-            // not indicate support for 32kx32k video.
+-            if (newWidth > 32768 || newHeight > 32768
+-                    || video_def->nStride > 32768 || video_def->nSliceHeight > 32768) {
+-                ALOGE("b/22885421");
+-                return OMX_ErrorBadParameter;
++
 +            // 20150126 Marcus Huang: Fix ALPS01919422; limits the max width/height
 +            //@Vdec_drv_if_public.c
 +            //  DEC_MAX_WIDTH = 1920;
@@ -819,39 +842,26 @@ index 409cef7..3591eee 100644
 +            if ((newWidth * newHeight) > (MAX_SUPPORT_WIDTH * MAX_SUPPORT_HEIGHT)) {
 +                ALOGE("frame size is not supported (%d x %d)", newWidth, newHeight);
 +                return OMX_ErrorUnsupportedSetting;
-+            }
-+#else
-             // We need width, height, stride and slice-height to be non-zero and sensible.
-             // These values were chosen to prevent integer overflows further down the line, and do
-             // not indicate support for 32kx32k video.
-@@ -496,6 +508,7 @@ OMX_ERRORTYPE SoftVideoDecoderOMXComponent::internalSetParameter(
-                 ALOGE("b/22885421");
-                 return OMX_ErrorBadParameter;
              }
-+#endif
              if (newWidth != oldWidth || newHeight != oldHeight) {
                  bool outputPort = (newParams->nPortIndex == kOutputPortIndex);
-                 if (outputPort) {
 diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
-index 9244e5b..a786301 100644
+index 9244e5b..429d008 100644
 --- a/services/audioflinger/AudioFlinger.cpp
 +++ b/services/audioflinger/AudioFlinger.cpp
-@@ -60,6 +60,9 @@
+@@ -60,6 +60,7 @@
  
  #include <system/audio.h>
  #include <hardware/audio.h>
-+#ifdef MTK_HARDWARE
 +#include <audio_mtk.h>
-+#endif
  
  #include "AudioMixer.h"
  #include "AudioFlinger.h"
-@@ -128,6 +131,173 @@ size_t AudioFlinger::mTeeSinkTrackFrames = kTeeSinkTrackFramesDefault;
+@@ -128,6 +129,171 @@ size_t AudioFlinger::mTeeSinkTrackFrames = kTeeSinkTrackFramesDefault;
  static const nsecs_t kMinGlobalEffectEnabletimeNs = seconds(7200);
  
  // ----------------------------------------------------------------------------
 +// support EM mode setting
-+#ifdef MTK_HARDWARE
 +status_t AudioFlinger::SetEMParameter(void *ptr, size_t len)
 +{
 +    ALOGV("SetEMParameter ");
@@ -1014,51 +1024,53 @@ index 9244e5b..a786301 100644
 +    mHardwareStatus = AUDIO_HW_IDLE;
 +    return value;
 +}
-+#endif
 +
 +// ----------------------------------------------------------------------------
  
  const char *formatToString(audio_format_t format) {
      switch (audio_get_main_format(format)) {
 diff --git a/services/audioflinger/AudioFlinger.h b/services/audioflinger/AudioFlinger.h
-index a417754..e50dbd6 100644
+index a417754..c47a619 100644
 --- a/services/audioflinger/AudioFlinger.h
 +++ b/services/audioflinger/AudioFlinger.h
-@@ -116,7 +116,16 @@ class AudioFlinger :
+@@ -116,6 +116,14 @@ class AudioFlinger :
      friend class BinderService<AudioFlinger>;   // for AudioFlinger()
  public:
      static const char* getServiceName() ANDROID_API { return "media.audio_flinger"; }
--
 +    
 +// add to EM mode setting
-+#ifdef MTK_HARDWARE
 +    virtual status_t GetEMParameter(void *ptr, size_t len);
 +    virtual status_t SetEMParameter(void *ptr, size_t len);
 +    virtual status_t SetAudioData(int par1,size_t len,void *ptr);
 +    virtual status_t GetAudioData(int par1,size_t len,void *ptr);
 +    virtual status_t SetAudioCommand(int parameters1,int parameters2);
 +    virtual status_t GetAudioCommand(int parameters1);
-+#endif
+ 
      virtual     status_t    dump(int fd, const Vector<String16>& args);
  
-     // IAudioFlinger interface, in binder opcode order
 diff --git a/services/audioflinger/Threads.cpp b/services/audioflinger/Threads.cpp
-index e8c80c1..6147603 100644
+index 5c37263..bc7812d 100644
 --- a/services/audioflinger/Threads.cpp
 +++ b/services/audioflinger/Threads.cpp
-@@ -6462,6 +6462,7 @@ reacquire_wakelock:
+@@ -6465,21 +6465,6 @@ reacquire_wakelock:
          mTimestamp.mPosition[ExtendedTimestamp::LOCATION_SERVER] += framesRead;
          mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_SERVER] = systemTime();
  
-+#ifndef MTK_HARDWARE
-         // Update server timestamp with kernel stats
-         if (mInput->stream->get_capture_position != nullptr
-                 && mPipeSource.get() == nullptr /* don't obtain for FastCapture, could block */) {
-@@ -6477,6 +6478,7 @@ reacquire_wakelock:
-                 // as the read obtains a lock, preventing the timestamp call from executing.
-             }
-         }
-+#endif
+-        // Update server timestamp with kernel stats
+-        if (mInput->stream->get_capture_position != nullptr
+-                && mPipeSource.get() == nullptr /* don't obtain for FastCapture, could block */) {
+-            int64_t position, time;
+-            int ret = mInput->stream->get_capture_position(mInput->stream, &position, &time);
+-            if (ret == NO_ERROR) {
+-                mTimestamp.mPosition[ExtendedTimestamp::LOCATION_KERNEL] = position;
+-                mTimestamp.mTimeNs[ExtendedTimestamp::LOCATION_KERNEL] = time;
+-                // Note: In general record buffers should tend to be empty in
+-                // a properly running pipeline.
+-                //
+-                // Also, it is not advantageous to call get_presentation_position during the read
+-                // as the read obtains a lock, preventing the timestamp call from executing.
+-            }
+-        }
          // Use this to track timestamp information
          // ALOGD("%s", mTimestamp.toString().c_str());
  
@@ -1204,30 +1216,27 @@ index 543b82b..f53e711 100755
  
  include $(BUILD_SHARED_LIBRARY)
 diff --git a/services/audiopolicy/enginedefault/src/Engine.cpp b/services/audiopolicy/enginedefault/src/Engine.cpp
-index 6db66b0..a0cb006 100755
+index 6db66b0..54a85f3 100755
 --- a/services/audiopolicy/enginedefault/src/Engine.cpp
 +++ b/services/audiopolicy/enginedefault/src/Engine.cpp
-@@ -85,9 +85,18 @@ status_t Engine::setPhoneState(audio_mode_t state)
+@@ -85,9 +85,15 @@ status_t Engine::setPhoneState(audio_mode_t state)
          ALOGV("  Entering call in setPhoneState()");
          mApmObserver->getVolumeCurves().switchVolumeCurve(AUDIO_STREAM_VOICE_CALL,
                                                            AUDIO_STREAM_DTMF);
-+#ifdef MTK_HARDWARE
 +        AudioPolicyVendorControl &mAudioPolicyVendorControl = mApmObserver->getAudioPolicyVendorControl();
 +        mAudioPolicyVendorControl.setVoiceReplaceDTMFStatus(true);
-+#endif
 +                                                          
      } else if (is_state_in_call(oldState) && !is_state_in_call(state)) {
          ALOGV("  Exiting call in setPhoneState()");
          mApmObserver->getVolumeCurves().restoreOriginVolumeCurve(AUDIO_STREAM_DTMF);
-+#ifdef MTK_HARDWARE
 +        AudioPolicyVendorControl &mAudioPolicyVendorControl = mApmObserver->getAudioPolicyVendorControl();
 +        mAudioPolicyVendorControl.setVoiceReplaceDTMFStatus(false);
-+#endif
++
      }
      return NO_ERROR;
  }
 diff --git a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
-index 8c39f78..4ca2b93 100644
+index 8c39f78..98eb364 100644
 --- a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
 +++ b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
 @@ -67,8 +67,27 @@
@@ -1258,11 +1267,11 @@ index 8c39f78..4ca2b93 100644
  
  //FIXME: workaround for truncated touch sounds
  // to be removed when the problem is handled by system UI
-@@ -3406,6 +3425,17 @@ AudioPolicyManager::AudioPolicyManager(AudioPolicyClientInterface *clientInterfa
+@@ -3406,6 +3425,16 @@ AudioPolicyManager::AudioPolicyManager(AudioPolicyClientInterface *clientInterfa
                  if (mPrimaryOutput == 0 &&
                          outProfile->getFlags() & AUDIO_OUTPUT_FLAG_PRIMARY) {
                      mPrimaryOutput = outputDesc;
-+		#ifdef MTK_HARDWARE
++
 +                    mAudioCustVolumeTable.bRev = CUSTOM_VOLUME_REV_1;
 +                    mAudioCustVolumeTable.bReady = 0;
 +                    mpClientInterface->getCustomAudioVolume(&mAudioCustVolumeTable);
@@ -1272,15 +1281,14 @@ index 8c39f78..4ca2b93 100644
 +                    } else {
 +                        ALOGD("mUseCustomVolume false");
 +                    }
-+		#endif
                  }
                  addOutput(output, outputDesc);
                  setOutputDevice(outputDesc,
-@@ -5069,7 +5099,18 @@ float AudioPolicyManager::computeVolume(audio_stream_type_t stream,
+@@ -5069,7 +5098,14 @@ float AudioPolicyManager::computeVolume(audio_stream_type_t stream,
                                          int index,
                                          audio_devices_t device)
  {
-+#ifdef MTK_HARDWARE
+-    float volumeDB = mVolumeCurves->volIndexToDb(stream, Volume::getDeviceCategory(device), index);
 +    float volumeDB;
 +    if (mAudioPolicyVendorControl.getCustomVolumeStatus()) {
 +            volumeDB = Volume::AmplToDb(computeCustomVolume(stream, index, device));
@@ -1289,30 +1297,22 @@ index 8c39f78..4ca2b93 100644
 +            volumeDB = mVolumeCurves->volIndexToDb(stream, Volume::getDeviceCategory(device), index);
 +    }
 +    ALOGD("%s streamtype [%d],index [%d],device [0x%x], volumeDb [%f]",__FUNCTION__,stream,index,device,volumeDB);
-+#else
-     float volumeDB = mVolumeCurves->volIndexToDb(stream, Volume::getDeviceCategory(device), index);
-+#endif
  
      // handle the case of accessibility active while a ringtone is playing: if the ringtone is much
      // louder than the accessibility prompt, the prompt cannot be heard, thus masking the touch
-@@ -5177,7 +5218,16 @@ status_t AudioPolicyManager::checkAndSetVolume(audio_stream_type_t stream,
+@@ -5177,7 +5213,11 @@ status_t AudioPolicyManager::checkAndSetVolume(audio_stream_type_t stream,
          float voiceVolume;
          // Force voice volume to max for bluetooth SCO as volume is managed by the headset
          if (stream == AUDIO_STREAM_VOICE_CALL) {
-+#ifdef MTK_HARDWARE
 +            if (mAudioPolicyVendorControl.getCustomVolumeStatus()) {
 +                voiceVolume = computeCustomVolume(stream, index, device);
 +            } else {
-+            voiceVolume = (float)index/(float)mVolumeCurves->getVolumeIndexMax(stream);
-+            }
-+#else
              voiceVolume = (float)index/(float)mVolumeCurves->getVolumeIndexMax(stream);
-+#endif
-+
++            }
          } else {
              voiceVolume = 1.0;
          }
-@@ -5637,4 +5687,297 @@ void AudioPolicyManager::updateAudioProfiles(audio_devices_t device,
+@@ -5637,4 +5677,297 @@ void AudioPolicyManager::updateAudioProfiles(audio_devices_t device,
      }
  }
  
@@ -1672,50 +1672,41 @@ index 78f9e65..542bc4a 100644
  
  };
 diff --git a/services/audiopolicy/service/AudioPolicyClientImpl.cpp b/services/audiopolicy/service/AudioPolicyClientImpl.cpp
-index e0d977a..4ea843f 100644
+index e0d977a..c7ba11d 100644
 --- a/services/audiopolicy/service/AudioPolicyClientImpl.cpp
 +++ b/services/audiopolicy/service/AudioPolicyClientImpl.cpp
-@@ -240,4 +240,13 @@ audio_unique_id_t AudioPolicyService::AudioPolicyClient::newAudioUniqueId(audio_
+@@ -240,4 +240,9 @@ audio_unique_id_t AudioPolicyService::AudioPolicyClient::newAudioUniqueId(audio_
      return AudioSystem::newAudioUniqueId(use);
  }
  
 +status_t AudioPolicyService::AudioPolicyClient::getCustomAudioVolume(void* pCustomVol)
 +{
-+#ifdef MTK_HARDWARE
 +    return mAudioPolicyService->getCustomAudioVolume(pCustomVol);
-+#else
-+    return INVALID_OPERATION;
-+#endif
 +}
 +
  }; // namespace android
 diff --git a/services/audiopolicy/service/AudioPolicyInterfaceImpl.cpp b/services/audiopolicy/service/AudioPolicyInterfaceImpl.cpp
-index 8bc50b0..bd4e8ef 100644
+index 8bc50b0..2530565 100644
 --- a/services/audiopolicy/service/AudioPolicyInterfaceImpl.cpp
 +++ b/services/audiopolicy/service/AudioPolicyInterfaceImpl.cpp
-@@ -778,6 +778,20 @@ status_t AudioPolicyService::getMasterMono(bool *mono)
+@@ -778,6 +778,15 @@ status_t AudioPolicyService::getMasterMono(bool *mono)
      return mAudioPolicyManager->getMasterMono(mono);
  }
  
 +status_t AudioPolicyService::SetPolicyManagerParameters(int par1, int par2, int par3, int par4)
 +{
-+#ifdef MTK_HARDWARE
 +    Mutex::Autolock _l(mLock);
 +    if (mAudioPolicyManager == NULL) {
 +        return NO_INIT;
 +    }
 +    return mAudioPolicyManager->SetPolicyManagerParameters(par1, par2, par3, par4);
-+#else
-+    return 0;
-+#endif
-+
 +}
 +
  status_t AudioPolicyService::listAudioSessions(audio_stream_type_t streams,
                                                 Vector< sp<AudioSessionInfo>> &sessions)
  {
 diff --git a/services/audiopolicy/service/AudioPolicyService.cpp b/services/audiopolicy/service/AudioPolicyService.cpp
-index 2b3ed26..88d6bda 100644
+index 2b3ed26..786b50b 100644
 --- a/services/audiopolicy/service/AudioPolicyService.cpp
 +++ b/services/audiopolicy/service/AudioPolicyService.cpp
 @@ -41,6 +41,7 @@
@@ -1726,23 +1717,18 @@ index 2b3ed26..88d6bda 100644
  
  namespace android {
  
-@@ -58,6 +59,39 @@ namespace {
+@@ -58,6 +59,31 @@ namespace {
  };
  #endif
  
 +// mtk start
 +status_t AudioPolicyService::getCustomAudioVolume(void* pCustomVol)
 +{
-+#ifdef MTK_HARDWARE
 +    return mAudioCommandThread->getCustomAudioVolumeCommand(pCustomVol);
-+#else
-+    return INVALID_OPERATION;
-+#endif
 +}
 +
 +status_t     AudioPolicyService::AudioCommandThread::getCustomAudioVolumeCommand(void* pCustomVol)
 +{
-+#ifdef MTK_HARDWARE
 +    status_t status = NO_ERROR;
 +    sp<AudioCommand> command = new AudioCommand();
 +    command->mCommand = GET_CUSTOM_AUDIO_VOLUME;
@@ -1757,16 +1743,13 @@ index 2b3ed26..88d6bda 100644
 +        memcpy(pCustomVol,&(data->mVolConfig),sizeof(AUDIO_CUSTOM_VOLUME_STRUCT));
 +    }
 +    return status;
-+#else
-+    return INVALID_OPERATION;
-+#endif
 +}
 +// mtk end
 +
  // ----------------------------------------------------------------------------
  
  AudioPolicyService::AudioPolicyService()
-@@ -94,7 +128,7 @@ void AudioPolicyService::onFirstRef()
+@@ -94,7 +120,7 @@ void AudioPolicyService::onFirstRef()
          }
  
          rc = mpAudioPolicyDev->create_audio_policy(mpAudioPolicyDev, &aps_ops, this,
@@ -1775,11 +1758,10 @@ index 2b3ed26..88d6bda 100644
          ALOGE_IF(rc, "couldn't create audio policy (%s)", strerror(-rc));
          if (rc) {
              return;
-@@ -661,6 +695,19 @@ bool AudioPolicyService::AudioCommandThread::threadLoop()
+@@ -661,6 +687,18 @@ bool AudioPolicyService::AudioCommandThread::threadLoop()
                      mLock.lock();
                      } break;
  
-+#ifdef MTK_HARDWARE
 +                case GET_CUSTOM_AUDIO_VOLUME: {
 +                    GetCustomAudioVolumeData *data = (GetCustomAudioVolumeData *)command->mParam.get();
 +                    ALOGV("AudioCommandThread() processing GET_CUSTOM_AUDIO_VOLUME");
@@ -1791,7 +1773,7 @@ index 2b3ed26..88d6bda 100644
 +                    }
 +                    ALOGV("-AudioCommandThread %d",command->mCommand);
 +                    } break;
-+#endif
++
                  default:
                      ALOGW("AudioCommandThread() unknown command %d", command->mCommand);
                  }
@@ -1864,5 +1846,5 @@ index fec95cc..c66377f 100644
      AudioPolicyClient *mAudioPolicyClient;
  
 -- 
-1.9.1
+2.7.4
 
