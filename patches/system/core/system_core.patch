@@ -1,32 +1,385 @@
-From bfecbaf9334117e8c11293ab12a7e9a07ceae8b3 Mon Sep 17 00:00:00 2001
-From: darklord4822 <darklord4722@gmail.com>
-Date: Sat, 7 Oct 2017 14:16:26 +0000
-Subject: [PATCH] changes for MTK
+From 8740823bc2308a4582a4eb1a6f4ef7589d708353 Mon Sep 17 00:00:00 2001
+From: hyperion70 <bmaximov71@gmail.com>
+Date: Fri, 28 Sep 2018 14:25:33 +0300
+Subject: [PATCH] system_core
 
-Change-Id: I3eeaa80b75e5203d3d8345790dadfbcff8ee2a78
+Change-Id: Ic9603908c838e2b5e8db29ca37fd17f8be684143
 ---
- include/netutils/ifc.h      |  15 ++
- init/init.cpp               |   2 +-
- init/init.h                 |   2 +-
- init/service.cpp            |   6 +-
- libcutils/Android.mk        |   5 +-
- libcutils/fs_config.c       |   2 +-
- libcutils/mtk_audioCompat.c |   4 +
- libcutils/mtk_xlog.cpp      |  27 ++++
- libnetutils/ifc_utils.c     | 323 ++++++++++++++++++++++++++++++++++++++++++++
- 9 files changed, 379 insertions(+), 7 deletions(-)
+ healthd/BatteryMonitor.cpp        |  115 ++--
+ healthd/healthd.cpp               |   37 +-
+ healthd/healthd_board_default.cpp |    2 +-
+ healthd/include/healthd/healthd.h |    3 +-
+ include/netutils/dhcp_utils.h     |   30 +
+ include/netutils/ifc.h            |   14 +-
+ include/netutils/pppoe.h          |   15 +
+ init/init.cpp                     |    2 +-
+ init/init.h                       |    2 +-
+ init/service.cpp                  |    6 +-
+ libcutils/Android.mk              |    5 +-
+ libcutils/fs_config.c             |    2 +-
+ libcutils/mtk_audioCompat.c       |    4 +
+ libcutils/mtk_xlog.cpp            |   27 +
+ libnetutils/Android.mk            |    7 +-
+ libnetutils/dhcp_utils.c          | 1172 +++++++++++++++++++++++++++++++++++++
+ libnetutils/ifc_utils.c           |  438 +++++++++++++-
+ libnetutils/pppoe_utils.c         |  283 +++++++++
+ 18 files changed, 2033 insertions(+), 131 deletions(-)
+ create mode 100644 include/netutils/dhcp_utils.h
+ create mode 100644 include/netutils/pppoe.h
  create mode 100644 libcutils/mtk_audioCompat.c
  create mode 100644 libcutils/mtk_xlog.cpp
+ create mode 100644 libnetutils/dhcp_utils.c
+ create mode 100644 libnetutils/pppoe_utils.c
 
+diff --git a/healthd/BatteryMonitor.cpp b/healthd/BatteryMonitor.cpp
+index d2088ee..97b0a22 100644
+--- a/healthd/BatteryMonitor.cpp
++++ b/healthd/BatteryMonitor.cpp
+@@ -184,8 +184,10 @@ BatteryMonitor::PowerSupplyType BatteryMonitor::readPowerSupplyType(const String
+         return ANDROID_POWER_SUPPLY_TYPE_UNKNOWN;
+ 
+     ret = (BatteryMonitor::PowerSupplyType)mapSysfsString(buf, supplyTypeMap);
+-    if (ret < 0)
++    if (ret < 0) {
++        KLOG_WARNING(LOG_TAG, "Unknown power supply type '%s'\n", buf);
+         ret = ANDROID_POWER_SUPPLY_TYPE_UNKNOWN;
++    }
+ 
+     return ret;
+ }
+@@ -217,7 +219,7 @@ int BatteryMonitor::getIntField(const String8& path) {
+ 
+ bool BatteryMonitor::update(void) {
+     bool logthis;
+-
++    double MaxPower = 0;
+     initBatteryProperties(&props);
+ 
+     if (!mHealthdConfig->batteryPresentPath.isEmpty())
+@@ -228,11 +230,28 @@ bool BatteryMonitor::update(void) {
+     props.batteryLevel = mBatteryFixedCapacity ?
+         mBatteryFixedCapacity :
+         getIntField(mHealthdConfig->batteryCapacityPath);
+-    props.batteryVoltage = getIntField(mHealthdConfig->batteryVoltagePath) / 1000;
++    props.batteryVoltage = getIntField(mHealthdConfig->batteryVoltagePath);
+ 
+     if (!mHealthdConfig->batteryCurrentNowPath.isEmpty())
+         props.batteryCurrent = getIntField(mHealthdConfig->batteryCurrentNowPath) / 1000;
+-
++    
++    if ((!mHealthdConfig->batteryCurrentMaxPath.isEmpty()) && (!mHealthdConfig->batteryVoltageMaxPath.isEmpty())) {
++       int ChargingCurrent = getIntField(mHealthdConfig->batteryCurrentMaxPath);
++       int ChargingVoltage = getIntField(mHealthdConfig->batteryVoltageMaxPath);
++       double power = ((double)ChargingCurrent / MILLION) * ((double)ChargingVoltage / MILLION);
++        if (MaxPower < power) {
++            props.maxChargingCurrent = ChargingCurrent;
++            props.maxChargingVoltage = ChargingVoltage;
++            MaxPower = power;
++        } else {
++	    props.maxChargingCurrent = 0;
++            props.maxChargingVoltage = DEFAULT_VBUS_VOLTAGE; 
++	} 
++    } else {
++       props.maxChargingCurrent = 0;
++       props.maxChargingVoltage = DEFAULT_VBUS_VOLTAGE;      
++    }
++   
+     if (!mHealthdConfig->batteryFullChargePath.isEmpty())
+         props.batteryFullCharge = getIntField(mHealthdConfig->batteryFullChargePath);
+ 
+@@ -295,40 +314,17 @@ bool BatteryMonitor::update(void) {
+     }
+ 
+     unsigned int i;
+-    double MaxPower = 0;
+ 
+-    // reinitialize the mChargerNames vector everytime there is an update
++    for (i = 0; i < mChargerNames.size(); i++) {
+     String8 path;
+-    DIR* dir = opendir(POWER_SUPPLY_SYSFS_PATH);
+-    if (dir == NULL) {
+-        KLOG_ERROR(LOG_TAG, "Could not open %s\n", POWER_SUPPLY_SYSFS_PATH);
+-    } else {
+-        struct dirent* entry;
+-        // reconstruct the charger strings
+-        mChargerNames.clear();
+-        while ((entry = readdir(dir))) {
+-            const char* name = entry->d_name;
++        path.appendFormat("%s/%s/online", POWER_SUPPLY_SYSFS_PATH,
++                          mChargerNames[i].string());
+ 
+-            if (!strcmp(name, ".") || !strcmp(name, ".."))
+-                continue;
+-
+-            // Look for "type" file in each subdirectory
+-            path.clear();
+-            path.appendFormat("%s/%s/type", POWER_SUPPLY_SYSFS_PATH, name);
+-            switch(readPowerSupplyType(path)) {
+-            case ANDROID_POWER_SUPPLY_TYPE_BATTERY:
+-            case ANDROID_POWER_SUPPLY_TYPE_DOCK_BATTERY:
+-                break;
+-            default:
+-                path.clear();
+-                path.appendFormat("%s/%s/online", POWER_SUPPLY_SYSFS_PATH, name);
+-                if (access(path.string(), R_OK) == 0) {
+-                    mChargerNames.add(String8(name));
+                     if (readFromFile(path, buf, SIZE) > 0) {
+                         if (buf[0] != '0') {
+                             path.clear();
+                             path.appendFormat("%s/%s/type", POWER_SUPPLY_SYSFS_PATH,
+-                                              name);
++                                  mChargerNames[i].string());
+                             switch(readPowerSupplyType(path)) {
+                             case ANDROID_POWER_SUPPLY_TYPE_AC:
+                                 props.chargerAcOnline = true;
+@@ -345,41 +341,14 @@ bool BatteryMonitor::update(void) {
+                                 }
+                             default:
+                                 KLOG_WARNING(LOG_TAG, "%s: Unknown power supply type\n",
+-                                             name);
++                                 mChargerNames[i].string());
+                             }
+ 
+-                            //If its online, read the voltage and current for power
+-                            path.clear();
+-                            path.appendFormat("%s/%s/current_max", POWER_SUPPLY_SYSFS_PATH,
+-                                            name);
+-                            int ChargingCurrent =
+-                                          (access(path.string(), R_OK) == 0) ? getIntField(path) : 0;
+-
+-                            path.clear();
+-                            path.appendFormat("%s/%s/voltage_max", POWER_SUPPLY_SYSFS_PATH,
+-                                            name);
+-
+-                            int ChargingVoltage =
+-                              (access(path.string(), R_OK) == 0) ? getIntField(path) :
+-                              DEFAULT_VBUS_VOLTAGE;
+-
+-                            double power = ((double)ChargingCurrent / MILLION) *
+-                                    ((double)ChargingVoltage / MILLION);
+-                            if (MaxPower < power) {
+-                                props.maxChargingCurrent = ChargingCurrent;
+-                                props.maxChargingVoltage = ChargingVoltage;
+-                                MaxPower = power;
+-                            }
+                         }
+                     }
+                 }
+-                break;
+-            } //switch
+-        } //while
+-        closedir(dir);
+-    }//else
+ 
+-    logthis = !healthd_board_battery_update(&props);
++    logthis = true; //!healthd_board_battery_update(&props);
+ 
+     if (logthis) {
+         char dmesgline[256];
+@@ -388,12 +357,12 @@ bool BatteryMonitor::update(void) {
+ 
+         if (props.batteryPresent) {
+             snprintf(dmesgline, sizeof(dmesgline),
+-                 "battery [l=%d v=%d t=%s%d.%d h=%d st=%d]",
++                 "battery [Level=%d Voltage=%d Temp=%s%d.%d Health=%d Status=%d ChgCurrent=%d ChgVoltage=%d]",
+                  props.batteryLevel, props.batteryVoltage,
+                  props.batteryTemperature < 0 ? "-" : "",
+                  abs(props.batteryTemperature / 10),
+                  abs(props.batteryTemperature % 10), props.batteryHealth,
+-                 props.batteryStatus);
++                 props.batteryStatus, props.maxChargingCurrent/1000 <= 0 ? 0 : props.maxChargingCurrent/1000, props.maxChargingVoltage/1000 <= 0 ? 0 : props.maxChargingVoltage/1000);
+ 
+             len = strlen(dmesgline);
+             if (!mHealthdConfig->batteryCurrentNowPath.isEmpty()) {
+@@ -759,7 +728,23 @@ void BatteryMonitor::init(struct healthd_config *hc) {
+                     if (access(path, R_OK) == 0)
+                         mHealthdConfig->batteryFullChargePath = path;
+                 }
+-
++                
++                if (mHealthdConfig->batteryCurrentMaxPath.isEmpty()) {
++                    path.clear();
++                    path.appendFormat("%s/%s/current_max",
++                                      POWER_SUPPLY_SYSFS_PATH, name);
++                    if (access(path, R_OK) == 0)
++                        mHealthdConfig->batteryCurrentMaxPath = path;
++                }
++                
++                if (mHealthdConfig->batteryVoltageMaxPath.isEmpty()) {
++                    path.clear();
++                    path.appendFormat("%s/%s/voltage_max",
++                                      POWER_SUPPLY_SYSFS_PATH, name);
++                    if (access(path, R_OK) == 0)
++                        mHealthdConfig->batteryVoltageMaxPath = path;
++                }
++                
+                 if (mHealthdConfig->batteryCurrentNowPath.isEmpty()) {
+                     path.clear();
+                     path.appendFormat("%s/%s/current_now",
+@@ -951,6 +936,10 @@ void BatteryMonitor::init(struct healthd_config *hc) {
+             KLOG_WARNING(LOG_TAG, "BatteryTechnologyPath not found\n");
+         if (mHealthdConfig->batteryCurrentNowPath.isEmpty())
+             KLOG_WARNING(LOG_TAG, "BatteryCurrentNowPath not found\n");
++        if (mHealthdConfig->batteryCurrentMaxPath.isEmpty())
++            KLOG_WARNING(LOG_TAG, "batteryCurrentMaxPath not found\n");
++        if (mHealthdConfig->batteryVoltageMaxPath.isEmpty())
++            KLOG_WARNING(LOG_TAG, "batteryVoltageMaxPath not found\n");	
+         if (mHealthdConfig->batteryFullChargePath.isEmpty())
+             KLOG_WARNING(LOG_TAG, "BatteryFullChargePath not found\n");
+         if (mHealthdConfig->batteryCycleCountPath.isEmpty())
+diff --git a/healthd/healthd.cpp b/healthd/healthd.cpp
+index 45d96c9..c6a34bb 100644
+--- a/healthd/healthd.cpp
++++ b/healthd/healthd.cpp
+@@ -37,25 +37,8 @@
+ using namespace android;
+ 
+ // Periodic chores intervals in seconds
+-#ifndef BOARD_PERIODIC_CHORES_INTERVAL_FAST
+- #ifdef QCOM_HARDWARE
+-  #define DEFAULT_PERIODIC_CHORES_INTERVAL_FAST (60 * 10)
+- #else
+-  #define DEFAULT_PERIODIC_CHORES_INTERVAL_FAST (60 * 1)
+- #endif
+-#else
+-  #define DEFAULT_PERIODIC_CHORES_INTERVAL_FAST (BOARD_PERIODIC_CHORES_INTERVAL_FAST)
+-#endif
+-
+-#ifndef BOARD_PERIODIC_CHORES_INTERVAL_SLOW
+- #ifdef QCOM_HARDWARE
+-  #define DEFAULT_PERIODIC_CHORES_INTERVAL_SLOW -1
+- #else
+-  #define DEFAULT_PERIODIC_CHORES_INTERVAL_SLOW (60 * 10)
+- #endif
+-#else
+-  #define DEFAULT_PERIODIC_CHORES_INTERVAL_SLOW (BOARD_PERIODIC_CHORES_INTERVAL_SLOW)
+-#endif
++#define DEFAULT_PERIODIC_CHORES_INTERVAL_FAST (24 * 60 * 60)
++#define DEFAULT_PERIODIC_CHORES_INTERVAL_SLOW (24 * 60 * 60)
+ 
+ static struct healthd_config healthd_config = {
+     .periodic_chores_interval_fast = DEFAULT_PERIODIC_CHORES_INTERVAL_FAST,
+@@ -72,6 +55,8 @@ static struct healthd_config healthd_config = {
+     .batteryChargeCounterPath = String8(String8::kEmptyString),
+     .batteryFullChargePath = String8(String8::kEmptyString),
+     .batteryCycleCountPath = String8(String8::kEmptyString),
++    .batteryCurrentMaxPath = String8(String8::kEmptyString),
++    .batteryVoltageMaxPath = String8(String8::kEmptyString),
+     .energyCounter = NULL,
+     .boot_min_cap = 0,
+     .screen_on = NULL,
+@@ -314,17 +299,12 @@ static void wakealarm_init(void) {
+ }
+ 
+ static void healthd_mainloop(void) {
+-    int nevents = 0;
+     while (1) {
+         struct epoll_event events[eventct];
++        int nevents;
+         int timeout = awake_poll_interval;
+         int mode_timeout;
+ 
+-        /* Don't wait for first timer timeout to run periodic chores */
+-        if (!nevents)
+-            periodic_chores();
+-
+-        healthd_mode_ops->heartbeat();
+ 
+         mode_timeout = healthd_mode_ops->preparetowait();
+         if (timeout < 0 || (mode_timeout > 0 && mode_timeout < timeout))
+@@ -341,6 +321,10 @@ static void healthd_mainloop(void) {
+             if (events[n].data.ptr)
+                 (*(void (*)(int))events[n].data.ptr)(events[n].events);
+         }
++        if (!nevents)
++            periodic_chores();
++
++        healthd_mode_ops->heartbeat();
+     }
+ 
+     return;
+@@ -397,9 +381,6 @@ int main(int argc, char **argv) {
+         exit(2);
+     }
+ 
+-    periodic_chores();
+-    healthd_mode_ops->heartbeat();
+-
+     healthd_mainloop();
+     KLOG_ERROR("Main loop terminated, exiting\n");
+     return 3;
+diff --git a/healthd/healthd_board_default.cpp b/healthd/healthd_board_default.cpp
+index fdb970b..960f0d2 100644
+--- a/healthd/healthd_board_default.cpp
++++ b/healthd/healthd_board_default.cpp
+@@ -25,7 +25,7 @@ void healthd_board_init(struct healthd_config*)
+ int healthd_board_battery_update(struct android::BatteryProperties*)
+ {
+     // return 0 to log periodic polled battery status to kernel log
+-    return 1;
++    return 0;
+ }
+ 
+ void healthd_board_mode_charger_draw_battery(struct android::BatteryProperties*)
+diff --git a/healthd/include/healthd/healthd.h b/healthd/include/healthd/healthd.h
+index e9f9da3..983a572 100644
+--- a/healthd/include/healthd/healthd.h
++++ b/healthd/include/healthd/healthd.h
+@@ -85,7 +85,8 @@ struct healthd_config {
+     android::String8 batteryChargeCounterPath;
+     android::String8 batteryFullChargePath;
+     android::String8 batteryCycleCountPath;
+-
++    android::String8 batteryCurrentMaxPath;
++    android::String8 batteryVoltageMaxPath;
+     int (*energyCounter)(int64_t *);
+     int boot_min_cap;
+     bool (*screen_on)(android::BatteryProperties *props);
+diff --git a/include/netutils/dhcp_utils.h b/include/netutils/dhcp_utils.h
+new file mode 100644
+index 0000000..5fd839f
+--- /dev/null
++++ b/include/netutils/dhcp_utils.h
+@@ -0,0 +1,30 @@
++#include <errno.h>
++#include <fcntl.h>
++
++#ifdef ANDROID
++#define LOG_TAG "DhcpUtils"
++#include <cutils/log.h>
++#else
++#include <stdio.h>
++#include <string.h>
++#define ALOGD printf
++#define ALOGE printf
++#endif
++								  
++/*mtk_net pcscf*/
++static const char DAEMON_NAME_INFORM[]  = "dhcp_inform";	
++static const char DAEMON_NAME_INFORMV6[]  = "dhcpv6_inform";
++/*mtk_net pcscf end*/
++static char errmsgv6[100];
++static char errmsgPD[100];
++
++
++static const char DHCPv6_DAEMON_NAME[]        = "dhcp6c";
++static const char DHCPv6DNS_DAEMON_NAME[]        = "dhcp6cDNS";
++static const char DHCPv6_DAEMON_PROP_NAME[]   = "init.svc.dhcp6c";
++static const char DHCPv6DNS_DAEMON_PROP_NAME[]   = "init.svc.dhcp6cDNS";
++static const char DHCPv6_PROP_NAME_PREFIX[]  = "dhcp.ipv6";
++static const char PD_PROP_NAME_PREFIX[] = "dhcp.pd";
++static const char PD_DAEMON_NAME[] = "dhcp6c_PD";
++static const char PD_DAEMON_PROP_NAME[] = "init.svc.dhcp6c_PD";
++#define DHCP6C_PIDFILE "/data/misc/wide-dhcpv6/dhcp6c.pid"
 diff --git a/include/netutils/ifc.h b/include/netutils/ifc.h
-index 3b27234..03932ab 100644
+index 3b27234..44f884d 100644
 --- a/include/netutils/ifc.h
 +++ b/include/netutils/ifc.h
-@@ -61,6 +61,21 @@ extern int ifc_configure(const char *ifname, in_addr_t address,
+@@ -60,7 +60,19 @@ extern int ifc_configure(const char *ifname, in_addr_t address,
+                          in_addr_t dns1, in_addr_t dns2);
  
  extern in_addr_t prefixLengthToIpv4Netmask(int prefix_length);
- 
-+#ifdef MTK_HARDWARE
+-
 +extern int ifc_is_up(const char *name, unsigned *isup);
 +extern int ifc_enable_allmc(const char *name);
 +extern int ifc_disable_allmc(const char *name);
@@ -35,15 +388,35 @@ index 3b27234..03932ab 100644
 +extern int ifc_set_fwmark_rule(const char *ifname, int mark, int add);
 +extern int ifc_set_txq_state(const char *ifname, int state);
 +extern int ifc_ccmni_md_cfg(const char *ifname, int md_id);
++extern int ifc_ipv6_trigger_rs(char *ifname);
 +struct uid_err {
 +    int appuid;
 +	int errorNum;
 +};
-+#endif
-+
  __END_DECLS
  
  #endif /* _NETUTILS_IFC_H_ */
+diff --git a/include/netutils/pppoe.h b/include/netutils/pppoe.h
+new file mode 100644
+index 0000000..cf1f411
+--- /dev/null
++++ b/include/netutils/pppoe.h
+@@ -0,0 +1,15 @@
++#ifndef _NETUTILS_DHCP_H_
++#define _NETUTILS_DHCP_H_
++
++#include <sys/cdefs.h>
++#include <arpa/inet.h>
++
++__BEGIN_DECLS
++
++
++extern int PPPOE_stop(const char *interface);
++extern char *PPPOE_get_errmsg();
++extern int PPPOE_do_request(const char *interface, int timeout_sec, const char *usr, const char *passwd, int interval, int failure, int mtu, int mru, int mss, char* iplocal, char* ipremote, char* gateway, char* dns1, char* dns2, char* ppplinkname);
++
++__END_DECLS
++#endif
 diff --git a/init/init.cpp b/init/init.cpp
 index 7a37059..f0b0d4f 100755
 --- a/init/init.cpp
@@ -166,39 +539,1363 @@ index 0000000..48abe31
 +
 +	void dl_register_notify_function(int (*load_notify_function) (const char *name, uintptr_t address, uintptr_t size), int(*unload_notify_function) (const char *name, uintptr_t address)){}
 +}
+diff --git a/libnetutils/Android.mk b/libnetutils/Android.mk
+index ff899c0..d342751 100644
+--- a/libnetutils/Android.mk
++++ b/libnetutils/Android.mk
+@@ -5,7 +5,9 @@ LOCAL_SRC_FILES := \
+         dhcpclient.c \
+         dhcpmsg.c \
+         ifc_utils.c \
+-        packet.c
++        dhcp_utils.c \
++        packet.c \
++        pppoe_utils.c
+ 
+ LOCAL_SHARED_LIBRARIES := \
+         libcutils \
+@@ -13,7 +15,8 @@ LOCAL_SHARED_LIBRARIES := \
+ 
+ LOCAL_MODULE := libnetutils
+ 
+-LOCAL_CFLAGS := -Werror
++# workaround: disable it to avoid build fail. MUST enable it again
++#LOCAL_CFLAGS := -Werror
+ 
+ include $(BUILD_SHARED_LIBRARY)
+ 
+diff --git a/libnetutils/dhcp_utils.c b/libnetutils/dhcp_utils.c
+new file mode 100644
+index 0000000..101ad4a
+--- /dev/null
++++ b/libnetutils/dhcp_utils.c
+@@ -0,0 +1,1172 @@
++/*
++* Copyright (C) 2014 MediaTek Inc.
++* Modification based on code covered by the mentioned copyright
++* and/or permission notice(s).
++*/
++/*
++ * Copyright 2008, The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++/* Utilities for managing the dhcpcd DHCP client daemon */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <arpa/inet.h>
++#include <netinet/in.h>
++
++#include <cutils/properties.h>
++#include <netutils/dhcp_utils.h>
++
++static const char DAEMON_NAME[]        = "dhcpcd";
++static const char DAEMON_PROP_NAME[]   = "init.svc.dhcpcd";
++static const char HOSTNAME_PROP_NAME[] = "net.hostname";
++static const char DHCP_PROP_NAME_PREFIX[]  = "dhcp";
++static const char DHCP_CONFIG_PATH[]   = "/system/etc/dhcpcd/dhcpcd.conf";
++static const int NAP_TIME = 50;   /* wait for 50ms at a time */
++                                  /* when polling for property values */
++static const char DAEMON_NAME_RENEW[]  = "iprenew";
++static char errmsg[100] = "\0";
++/* interface length for dhcpcd daemon start (dhcpcd_<interface> as defined in init.rc file)
++ * or for filling up system properties dhcpcd.<interface>.ipaddress, dhcpcd.<interface>.dns1
++ * and other properties on a successful bind
++ */
++#define MAX_INTERFACE_LENGTH 25
++
++/*
++ * P2p interface names increase sequentially p2p-p2p0-1, p2p-p2p0-2.. after
++ * group formation. This does not work well with system properties which can quickly
++ * exhaust or for specifiying a dhcp start target in init which requires
++ * interface to be pre-defined in init.rc file.
++ *
++ * This function returns a common string p2p for all p2p interfaces.
++ */
++void get_p2p_interface_replacement(const char *interface, char *p2p_interface) {
++    /* Use p2p for any interface starting with p2p. */
++    if (strncmp(interface, "p2p",3) == 0) {
++        strncpy(p2p_interface, "p2p", MAX_INTERFACE_LENGTH);
++    } else {
++        strncpy(p2p_interface, interface, MAX_INTERFACE_LENGTH);
++    }
++}
++
++/*
++ * Wait for a system property to be assigned a specified value.
++ * If desired_value is NULL, then just wait for the property to
++ * be created with any value. maxwait is the maximum amount of
++ * time in seconds to wait before giving up.
++ */
++static int wait_for_property(const char *name, const char *desired_value, int maxwait)
++{
++    char value[PROPERTY_VALUE_MAX] = {'\0'};
++    int maxnaps = (maxwait * 1000) / NAP_TIME;
++
++    if (maxnaps < 1) {
++        maxnaps = 1;
++    }
++
++    while (maxnaps-- >= 0) {
++        if (property_get(name, value, NULL)) {
++            if (desired_value == NULL) {
++                if (strcmp(value, "obtaining"))
++                    return 0;
++            } else if (strcmp(value, desired_value) == 0) {
++                return 0;
++            }
++        }
++        if (maxnaps >= 0) {
++            usleep(NAP_TIME * 1000);
++        }
++    }
++    return -1; /* failure */
++}
++
++static int fill_ip_info(const char *interface,
++                     char *ipaddr,
++                     char *gateway,
++                     uint32_t *prefixLength,
++                     char *dns[],
++                     char *server,
++                     uint32_t *lease,
++                     char *vendorInfo,
++                     char *domain,
++                     char *mtu)
++{
++    char prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++    /* Interface name after converting p2p0-p2p0-X to p2p to reuse system properties */
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++    int x;
++
++    get_p2p_interface_replacement(interface, p2p_interface);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.ipaddress", DHCP_PROP_NAME_PREFIX, p2p_interface);
++#if 0
++    property_get(prop_name, ipaddr, NULL);
++#endif
++    if (!property_get(prop_name, ipaddr, NULL)) {
++        ALOGE("Script haven't set properties correctlly.");
++        return -1;
++    }
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.gateway", DHCP_PROP_NAME_PREFIX, p2p_interface);
++    property_get(prop_name, gateway, NULL);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.server", DHCP_PROP_NAME_PREFIX, p2p_interface);
++    property_get(prop_name, server, NULL);
++
++    //TODO: Handle IPv6 when we change system property usage
++    if (gateway[0] == '\0' || strncmp(gateway, "0.0.0.0", 7) == 0) {
++        //DHCP server is our best bet as gateway
++        strncpy(gateway, server, PROPERTY_VALUE_MAX);
++    }
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.mask", DHCP_PROP_NAME_PREFIX, p2p_interface);
++    if (property_get(prop_name, prop_value, NULL)) {
++        int p;
++        // this conversion is v4 only, but this dhcp client is v4 only anyway
++        in_addr_t mask = ntohl(inet_addr(prop_value));
++        // Check netmask is a valid IP address.  ntohl gives NONE response (all 1's) for
++        // non 255.255.255.255 inputs.  if we get that value check if it is legit..
++        if (mask == INADDR_NONE && strcmp(prop_value, "255.255.255.255") != 0) {
++            snprintf(errmsg, sizeof(errmsg), "DHCP gave invalid net mask %s", prop_value);
++            return -1;
++        }
++        for (p = 0; p < 32; p++) {
++            if (mask == 0) break;
++            // check for non-contiguous netmask, e.g., 255.254.255.0
++            if ((mask & 0x80000000) == 0) {
++                snprintf(errmsg, sizeof(errmsg), "DHCP gave invalid net mask %s", prop_value);
++                return -1;
++            }
++            mask = mask << 1;
++        }
++        *prefixLength = p;
++    }
++
++    for (x=0; dns[x] != NULL; x++) {
++        snprintf(prop_name, sizeof(prop_name), "%s.%s.dns%d", DHCP_PROP_NAME_PREFIX, p2p_interface, x+1);
++        property_get(prop_name, dns[x], NULL);
++    }
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.leasetime", DHCP_PROP_NAME_PREFIX, p2p_interface);
++    if (property_get(prop_name, prop_value, NULL)) {
++        *lease = atol(prop_value);
++    }
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.vendorInfo", DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++    property_get(prop_name, vendorInfo, NULL);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.domain", DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++    property_get(prop_name, domain, NULL);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.mtu", DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++    property_get(prop_name, mtu, NULL);
++
++    return 0;
++}
++
++/*
++ * Get any available DHCP results.
++ */
++int dhcp_get_results(const char *interface,
++                     char *ipaddr,
++                     char *gateway,
++                     uint32_t *prefixLength,
++                     char *dns[],
++                     char *server,
++                     uint32_t *lease,
++                     char *vendorInfo,
++                     char *domain,
++                     char *mtu)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++
++    /* Interface name after converting p2p0-p2p0-X to p2p to reuse system properties */
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++    get_p2p_interface_replacement(interface, p2p_interface);
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++    if (!property_get(result_prop_name, prop_value, NULL)) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "DHCP result property was not set");
++        return -1;
++    }
++    if (strcmp(prop_value, "ok") == 0) {
++        if (fill_ip_info(interface, ipaddr, gateway, prefixLength, dns,
++                server, lease, vendorInfo, domain, mtu) == -1) {
++            return -1;
++        }
++        return 0;
++    } else {
++        snprintf(errmsg, sizeof(errmsg), "DHCP result was %s", prop_value);
++        property_set(result_prop_name, "timeout");
++        return -1;
++    }
++}
++
++/*
++ * Start the dhcp client daemon, and wait for it to finish
++ * configuring the interface.
++ *
++ * The device init.rc file needs a corresponding entry for this work.
++ *
++ * Example:
++ * service dhcpcd_<interface> /system/bin/dhcpcd -ABKL -f dhcpcd.conf
++ */
++int dhcp_start(const char *interface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2 + sizeof(DHCP_CONFIG_PATH)];
++    const char *ctrl_prop = "ctl.start";
++    const char *desired_status = "running";
++    /* Interface name after converting p2p0-p2p0-X to p2p to reuse system properties */
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++
++    get_p2p_interface_replacement(interface, p2p_interface);
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++
++    snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++            DAEMON_PROP_NAME,
++            p2p_interface);
++
++    /* Erase any previous setting of the dhcp result property */
++#if 0
++    property_set(result_prop_name, "");
++#endif
++    property_set(result_prop_name, "obtaining");
++
++    /* Start the daemon and wait until it's ready */
++#if 0
++    if (property_get(HOSTNAME_PROP_NAME, prop_value, NULL) && (prop_value[0] != '\0'))
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s:-f %s -h %s %s", DAEMON_NAME,
++                 p2p_interface, DHCP_CONFIG_PATH, prop_value, interface);
++    else
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s:-f %s %s", DAEMON_NAME,
++                 p2p_interface, DHCP_CONFIG_PATH, interface);
++#endif
++    if (property_get(HOSTNAME_PROP_NAME, prop_value, NULL) && (prop_value[0] != '\0')) {
++#ifdef MTK_AUTOIP_SUPPORT
++        ALOGD(" AUTOIP is SUPPORTed \n");
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s:-f %s -h %s %s", DAEMON_NAME,
++                 p2p_interface, DHCP_CONFIG_PATH, prop_value, interface);
++#else
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s:-A -f %s -h %s %s", DAEMON_NAME,
++                 p2p_interface,DHCP_CONFIG_PATH, prop_value, interface);
++#endif
++    }
++    ALOGI("dhcp_do_request: %s", daemon_cmd);
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++    property_set(ctrl_prop, daemon_cmd);
++    if (wait_for_property(daemon_prop_name, desired_status, 10) < 0) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timed out waiting for dhcpcd to start");
++        return -1;
++    }
++
++    /* Wait for the daemon to return a result */
++#ifndef MTK_AUTOIP_SUPPORT
++    if (wait_for_property(result_prop_name, NULL, 30) < 0) {
++#else
++    if (wait_for_property(result_prop_name, NULL, 40) < 0) {
++#endif
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timed out waiting for DHCP to finish");
++        return -1;
++    }
++
++    return 0;
++}
++
++/**
++ * Stop the DHCP client daemon.
++ */
++int dhcp_stop(const char *interface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++
++    const char *ctrl_prop = "ctl.stop";
++    const char *desired_status = "stopped";
++
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++
++    get_p2p_interface_replacement(interface, p2p_interface);
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++
++    snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++            DAEMON_PROP_NAME,
++            p2p_interface);
++
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s", DAEMON_NAME, p2p_interface);
++
++    /* Stop the daemon and wait until it's reported to be stopped */
++    ALOGI("dhcp_stop.");
++    // wait for 2 seconds if current status isn't "running", To deal with scenrio that stop command come too fast that the 
++    if (strcmp(prop_value, "obtaining") == 0)
++        wait_for_property(daemon_prop_name, "running", 1);
++
++    property_set(ctrl_prop, daemon_cmd);
++    if (wait_for_property(daemon_prop_name, desired_status, 5) < 0) {
++        return -1;
++    }
++    property_set(result_prop_name, "failed");
++    return 0;
++}
++
++/**
++ * Release the current DHCP client lease.
++ */
++int dhcp_release_lease(const char *interface)
++{
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.stop";
++    const char *desired_status = "stopped";
++
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++
++    get_p2p_interface_replacement(interface, p2p_interface);
++
++    snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++            DAEMON_PROP_NAME,
++            p2p_interface);
++
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s", DAEMON_NAME, p2p_interface);
++
++    /* Stop the daemon and wait until it's reported to be stopped */
++    property_set(ctrl_prop, daemon_cmd);
++    if (wait_for_property(daemon_prop_name, desired_status, 5) < 0) {
++        return -1;
++    }
++    return 0;
++}
++
++char *dhcp_get_errmsg() {
++    return errmsg;
++}
++
++/**
++ * The device init.rc file needs a corresponding entry.
++ *
++ * Example:
++ * service iprenew_<interface> /system/bin/dhcpcd -n
++ *
++ */
++int dhcp_start_renew(const char *interface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.start";
++
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++
++    get_p2p_interface_replacement(interface, p2p_interface);
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCP_PROP_NAME_PREFIX,
++            p2p_interface);
++
++    /* Erase any previous setting of the dhcp result property */
++    property_set(result_prop_name, "");
++
++    /* Start the renew daemon and wait until it's ready */
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s:%s", DAEMON_NAME_RENEW,
++            p2p_interface, interface);
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++    property_set(ctrl_prop, daemon_cmd);
++
++    /* Wait for the daemon to return a result */
++    if (wait_for_property(result_prop_name, NULL, 30) < 0) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timed out waiting for DHCP Renew to finish");
++        return -1;
++    }
++
++    return 0;
++}
++
++static int wait_for_property_usedByPD(const char *name, const char *desired_value, int maxwait)
++{
++    char value[PROPERTY_VALUE_MAX] = {'\0'};
++    int maxnaps = (maxwait * 1000) / NAP_TIME;
++
++    if (maxnaps < 1) {
++        maxnaps = 1;
++    }
++
++    while (maxnaps-- > 0) {
++        usleep(NAP_TIME * 1000);
++        if (property_get(name, value, NULL)) {
++            if (desired_value == NULL || 
++                    strcmp(value, desired_value) == 0) {
++                return 0;
++            }
++        }
++    }
++    return -1; /* failure */
++}
++
++/*
++ * read the value of ra_info_flag.
++ * return 1 for other config; return 2 for managed.
++ * Note: return 0 if no RA is received.
++ */
++enum GET_RA_RET {ERR=0, O_SET=1, M_SET=2, DEF_VAL=4};
++enum GET_RA_RET ra_flag;
++
++static enum GET_RA_RET getMbitFromRA(const char * iface, int maxwait)
++{
++	char ch;
++    char filename[64];
++	snprintf(filename, sizeof(filename), "/proc/sys/net/ipv6/conf/%s/ra_info_flag", iface);
++
++	if (maxwait < 1)
++	{
++		maxwait = 1;
++	}
++
++	while (maxwait-- > 0)
++	{
++        usleep(1000*1000); /*1s*/
++		int fd = open(filename, O_RDONLY);
++
++		if (fd < 0) {
++			ALOGE("Can't open %s: %s", filename, strerror(errno));
++			/*if open fail, retry after 1s*/
++			continue;
++		}
++
++		int len = read(fd, &ch, 1);
++		close(fd);
++
++		if (len < 0) {
++			ALOGE("Can't read %s: %s", filename, strerror(errno));
++			continue;
++		}
++
++		ALOGD("read:ra_info_flag=%c\n", ch);
++		if (ch == '2') 
++		{
++			return M_SET;
++		}
++		else if (ch == '1')
++		{
++			return O_SET;
++		}
++		else if (ch == '4')
++		{
++			return DEF_VAL;
++		}
++	}
++
++	return ERR;
++}
++
++
++/* get value of ipaddr, dns1, dns2 and lease on the interface.
++ * ipaddr is the ipv6 address assigned by the DHCP server.
++ * dns1, dns2 and lease also got from DHCP server.
++ * */
++static int fill_ip6_info(const char *interface,
++		char *ipaddr,
++		char *dns1,
++		char *dns2,
++		uint32_t *lease)
++{
++    char prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.ipaddress", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_get(prop_name, ipaddr, NULL);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.dns1", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_get(prop_name, dns1, NULL);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.dns2", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_get(prop_name, dns2, NULL);
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.leasetime", DHCPv6_PROP_NAME_PREFIX, interface);
++    if (property_get(prop_name, prop_value, NULL))
++		*lease = atol(prop_value);
++    else /*when RA flag is 'O', no need to do renew, so set lease time to a very big number.*/
++		*lease = 0x7FFFFFFF - 1;
++    ALOGD("(int)leasetime=%d\n", *lease);
++	
++    return 0;
++}
++
++static void clear_ip6_info(const char *interface)
++{
++    char prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++
++    ALOGD("[clear_ip6_info]");
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.ipaddress", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_set(prop_name, "");
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.dns1", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_set(prop_name, "");
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.dns2", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_set(prop_name, "");
++
++    snprintf(prop_name, sizeof(prop_name), "%s.%s.leasetime", DHCPv6_PROP_NAME_PREFIX, interface);
++    property_set(prop_name, "");
++}
++
++static int clear_RAflag(const char *interface)
++{
++    char proc[64];
++    snprintf(proc, sizeof(proc), "/proc/sys/net/ipv6/conf/%s/ra_info_flag", interface);
++
++    int fd = open(proc, O_WRONLY);
++    if (fd < 0) {
++        ALOGE("Failed to open ra_info_flag (%s)", strerror(errno));
++        return -1;
++    }
++
++    if (write(fd, "0", 1) != 1) {
++        ALOGE("Failed to write ra_info_flag (%s)", strerror(errno));
++        close(fd);
++        return -1;
++    }
++    close(fd);
++    return 0;		
++}
++
++/*
++ * Start the dhcpv6 client daemon, and wait for it to finish
++ * configuring the interface.
++ *
++ * The device init.rc file needs a corresponding entry for this work.
++ *
++ * Example:
++ * service dhcp6c_<interface> /system/bin/dhcp6c -Df
++ */
++int dhcpv6_start(const char *interface, uint32_t *pid_ptr)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.start";
++    const char *desired_status = "running";
++    FILE * fp;
++
++    // clear information, such as dns1, dns2, leasetime, ipaddress
++    clear_ip6_info(interface);
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCPv6_PROP_NAME_PREFIX,
++            interface);
++
++
++    /* Erase any previous setting of the dhcp result property */
++    property_set(result_prop_name, "");
++
++    /* Start the daemon and wait until it's ready */
++    ra_flag = getMbitFromRA("wlan0", 10);
++
++    if (ra_flag == M_SET) {
++        snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++				DHCPv6_DAEMON_PROP_NAME,
++				interface);
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s", DHCPv6_DAEMON_NAME, interface);
++    } else if (ra_flag == O_SET) {
++        snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++				DHCPv6DNS_DAEMON_PROP_NAME,
++				interface);
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s", DHCPv6DNS_DAEMON_NAME, interface);
++    } else {
++        ALOGD("AP didn't support ipv6");
++        return -1;
++    }
++
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++    property_set(ctrl_prop, daemon_cmd);
++    if (wait_for_property(daemon_prop_name, desired_status, 10) < 0) {
++        snprintf(errmsgv6, sizeof(errmsgv6), "%s", "Timed out waiting for dhcp6c to start");
++
++        return -1;
++    }
++
++    /* Wait for the daemon to return a result */
++    if (wait_for_property(result_prop_name, NULL, 30) < 0) {
++        snprintf(errmsgv6, sizeof(errmsgv6), "%s", "Timed out waiting for DHCPv6 to finish");
++        return -1;
++    }
++    //pass pid to framework
++    if ((fp = fopen(DHCP6C_PIDFILE, "r")) == NULL) {
++        ALOGE("%s", "Failed to open pid file.");
++        return -1;
++    }
++
++    if (fscanf(fp, "%d", pid_ptr) != 1)
++        *pid_ptr = 0;
++    fclose(fp);
++
++    if (*pid_ptr <= 0) {
++        ALOGE("pid value is invalid. pid=%d", *pid_ptr);
++        return -1;
++    }
++    return 0;
++}
++
++/**
++ * Stop the DHCPv6 client daemon.
++ */
++int dhcpv6_stop(const char *interface)
++{
++#if 1
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.stop";
++    const char *desired_status = "stopped";
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCPv6_PROP_NAME_PREFIX,
++            interface);
++
++    if (ra_flag == M_SET) {
++        snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++				DHCPv6_DAEMON_PROP_NAME,
++				interface);
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s", DHCPv6_DAEMON_NAME, interface);
++    } else if (ra_flag == O_SET) {
++        snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++				DHCPv6DNS_DAEMON_PROP_NAME,
++				interface);
++        snprintf(daemon_cmd, sizeof(daemon_cmd), "%s_%s", DHCPv6DNS_DAEMON_NAME, interface);
++    } else {
++        return 0;
++    }
++
++    ALOGE("[dhcpv6_stop] ctrl_prop = %s; daemon_cmd = %s; result_prop_name = %s", ctrl_prop,
++            daemon_cmd, result_prop_name);
++
++    /* Stop the daemon and wait until it's reported to be stopped */
++    property_set(ctrl_prop, daemon_cmd);
++    if (wait_for_property(daemon_prop_name, desired_status, 5) < 0) {
++        return -1;
++    }
++
++    char value[PROPERTY_VALUE_MAX] = {'\0'};
++    property_get(daemon_prop_name, value, NULL);
++    ALOGE("[dhcpv6_stop] value = %s", value);
++
++    property_set(result_prop_name, "released");
++
++    // clear information, such as dns1, dns2, leasetime, ipaddress
++    clear_ip6_info(interface);
++    clear_RAflag("wlan0");
++    return 0;
++#else
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *desired_status = "stopped";
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            DHCPv6_PROP_NAME_PREFIX,
++            interface);
++
++    snprintf(daemon_prop_name, sizeof(daemon_prop_name), "%s_%s",
++            DHCPv6_DAEMON_PROP_NAME,
++            interface);
++
++
++    /* Stop the daemon and wait until it's reported to be stopped */
++	system("dhcp6ctl stop");
++
++    if (wait_for_property(daemon_prop_name, desired_status, 5) < 0) {
++        return -1;
++    }
++    property_set(result_prop_name, "released");
++
++    // clear information, such as dns1, dns2, leasetime, ipaddress
++    clear_ip6_info(interface);
++	
++    return 0;
++#endif
++}
++
++char *dhcpv6_get_errmsg() {
++    return errmsgv6;
++}
++
++char *PD_get_errmsg() {
++    return errmsgPD;
++}
++
++
++/**
++ * The device init.rc file needs a corresponding entry.
++ *
++ * Example:
++ * service dhcp_inform /system/bin/dhcpcd <interface> -s -BK -A
++ *
++ */
++int dhcp_do_sip_request(const char *iface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.start";
++
++    ALOGD("dhcp_do_sip_request for %s\n", iface);
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.v4sipinfo",
++            DHCP_PROP_NAME_PREFIX,iface);
++    /* Erase any previous setting of the dhcp inform result property */
++    property_set(result_prop_name, "");
++
++    /* Start the inform process and wait until it's finished or timeout */
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s:%s", 
++    		DAEMON_NAME_INFORM, iface);
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++    property_set(ctrl_prop, daemon_cmd);
++
++    if (wait_for_property(result_prop_name, NULL, 30) < 0) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timed out waiting for DHCP inform to finish");
++        return -1;
++    }
++
++    if (!property_get(result_prop_name, prop_value, NULL)) {
++        /* shouldn't ever happen, given the success of wait_for_property() */
++        snprintf(errmsg, sizeof(errmsg), "%s", "DHCP Inform result property was not set");
++        return -1;
++    }
++    if (strcmp(prop_value, "success") == 0) {
++        return 0;
++    } else {
++        snprintf(errmsg, sizeof(errmsg), "DHCP Inform result was %s", prop_value);
++        return -1;
++    }
++}
++
++
++/**
++ * Stop the DHCP Inform before timeout.
++ */
++int dhcp_stop_sip_request(const char *iface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.stop";
++    const char *desired_status = "stopped";
++
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++	
++    ALOGD("dhcp_stop_sip_request for %s\n", iface);
++    if (NULL == iface) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "interface is NULL.");
++        return -1;
++    }
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.v4sipinfo",
++            DHCP_PROP_NAME_PREFIX,iface);
++
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s", DAEMON_NAME_INFORM);
++    /* Stop the daemon and wait until it's reported to be stopped */
++    property_set(ctrl_prop, daemon_cmd);
++	snprintf(daemon_prop_name, sizeof(daemon_prop_name), "init.svc.%s", 
++		DAEMON_NAME_INFORM);
++    if (wait_for_property(daemon_prop_name, desired_status, 5) < 0) {
++        return -1;
++    }
++    property_set(result_prop_name, "failed");
++    return 0;
++}
++
++/*mtk_net pcscf*/
++/**
++ * The device init.rc file needs a corresponding entry.
++ *
++ * Example:
++ * service dhcpv6_inform /system/bin/dhcp6c  -c conf -Dfi <interface>
++ *
++ */
++int dhcpv6_do_sip_request(const char *iface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.start";
++	
++    ALOGD("dhcpv6_do_sip_request for %s\n", iface);
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.v6sipinfo",
++            DHCPv6_PROP_NAME_PREFIX,iface);
++    /* Erase any previous setting of the dhcp inform result property */
++    property_set(result_prop_name, "");
++
++    /* Start the inform process and wait until it's finished or timeout */
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s:%s", 
++    		DAEMON_NAME_INFORMV6, iface);
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++    property_set(ctrl_prop, daemon_cmd);
++
++    if (wait_for_property(result_prop_name, NULL, 30) < 0) {
++		 snprintf(errmsgv6, sizeof(errmsgv6), "%s", "Timed out waiting for DHCPv6 inform to finish");
++		 return -1;
++    }
++
++    if (!property_get(result_prop_name, prop_value, NULL)) {
++        /* shouldn't ever happen, given the success of wait_for_property() */
++        snprintf(errmsgv6, sizeof(errmsgv6), "%s", "DHCPv6 Inform result property was not set");
++        return -1;
++    }
++    if (strcmp(prop_value, "success") == 0) {
++        return 0;
++    } else {
++        snprintf(errmsgv6, sizeof(errmsgv6), "DHCPv6 Inform result was %s", prop_value);
++        return -1;
++    }
++}
++
++
++/**
++ * Stop the DHCPv6 Inform before timeout.
++ */
++int dhcpv6_stop_sip_request(const char *iface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char daemon_prop_name[PROPERTY_KEY_MAX];
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.stop";
++    const char *desired_status = "stopped";
++
++    char p2p_interface[MAX_INTERFACE_LENGTH];
++	
++    ALOGD("dhcpv6_stop_sip_request for %s\n", iface);
++    if (NULL == iface) {
++		snprintf(errmsgv6, sizeof(errmsgv6), "%s", "interface is NULL.");
++		return -1;
++    }
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.v6sipinfo",
++            DHCPv6_PROP_NAME_PREFIX,iface);
++
++    snprintf(daemon_cmd, sizeof(daemon_cmd), "%s", DAEMON_NAME_INFORMV6);
++    /* Stop the daemon and wait until it's reported to be stopped */
++    property_set(ctrl_prop, daemon_cmd);
++	snprintf(daemon_prop_name, sizeof(daemon_prop_name), "init.svc.%s", 
++		DAEMON_NAME_INFORMV6);
++    if (wait_for_property(daemon_prop_name, desired_status, 5) < 0) {
++        return -1;
++    }
++    property_set(result_prop_name, "failed");
++    return 0;
++}
++/*mtk_net pcscf end*/
++
++/* the dhcpv6 client deamon can automatically update these properties,
++ * so, renew operation only need to read these properties again.
++ * */
++int dhcpv6_start_renew(const char *interface, const int pid)
++{
++    int ret;
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.renewresult",
++            DHCPv6_PROP_NAME_PREFIX,
++            interface);
++
++    ALOGE("[dhcpv6_start_renew] result_prop_name = %s; kill(%d, %d)", result_prop_name, pid, SIGUSR1);
++
++    /* send renew to the dhcp6c */
++	/*if ((ret = system("dhcp6ctl renew")) < 0)*/
++	/*{*/
++        /*snprintf(errmsgv6, sizeof(errmsgv6), "%s:%d\n", "execute renew command, got error return code:", ret);*/
++		/*return -1;*/
++	/*}*/
++
++	kill(pid, SIGUSR1);
++
++	/* Wait for the daemon to return a result */
++	if (wait_for_property(result_prop_name, NULL, 30) < 0) {
++            char value[PROPERTY_VALUE_MAX] = {'\0'};
++            property_get(result_prop_name, value, NULL);
++            ALOGE("[dhcpv6_start_renew] wait_for_property() value = %s; return < 0", value);
++		snprintf(errmsgv6, sizeof(errmsgv6), "%s", "Timed out waiting for DHCPv6 renew to finish");
++		return -1;
++	}
++        ALOGE("[dhcpv6_start_renew] wreturn 0");
++    return 0;
++}
++
++#if 1
++/* get value of ipaddr, dns1, dns2 and lease on the interface.
++ * ipaddr is the ipv6 address assigned by the DHCP server.
++ * dns1, dns2 and lease also got from DHCP server.
++ * */
++static int fill_PD_info(const char *interface,
++		char *prefix,
++		uint32_t *lease)
++{
++    char prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++
++	snprintf(prop_name, PROPERTY_KEY_MAX, "net.pd.%s.prefix", interface);
++    property_get(prop_name, prefix, NULL);
++	if (strlen(prefix) == 0)
++	{
++		ALOGD("pd.prefix is null string.");
++		return -1;
++	}
++	else
++	{
++		ALOGD("pd.prefix=%s", prefix);
++	}
++
++	snprintf(prop_name, sizeof(prop_name), "%s.%s.leasetime", DHCPv6_PROP_NAME_PREFIX, interface);
++    if (property_get(prop_name, prop_value, NULL))
++	{
++		*lease = atol(prop_value);
++	}
++	else 
++	{
++		*lease = 0x7FFFFFFF - 1;
++	}
++
++	ALOGD("(int)leasetime=%d\n", *lease);
++	
++	return 0;
++}
++
++//
++void clear_pd_info(const char *interface)
++{
++	char prop_name[PROPERTY_KEY_MAX];
++	char prefix[PROPERTY_VALUE_MAX];
++
++	char plen[PROPERTY_VALUE_MAX];
++
++	snprintf(prop_name, PROPERTY_KEY_MAX, "net.pd.%s.prefix", interface);
++    if (property_get(prop_name, prefix, NULL) > 0)
++	{
++		property_set("net.pd.lastprefix", prefix);
++	}
++		
++	property_set(prop_name, "");
++
++	snprintf(prop_name, PROPERTY_KEY_MAX, "net.pd.%s.plen", interface);
++    if (property_get(prop_name, plen, NULL) > 0)
++	{
++		property_set("net.pd.lastplen", plen);
++	}
++	property_set(prop_name, "");
++}
++
++int dhcpv6_PD_request(const char *interface, char *prefix, uint32_t *lease)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[PROPERTY_VALUE_MAX * 2];
++    const char *ctrl_prop = "ctl.start";
++    const char *desired_status = "running";
++
++	if (interface == NULL)
++	{
++        snprintf(errmsgPD, sizeof(errmsgPD), "%s", "PD interface is NULL");
++
++		return -1;
++	}
++
++	// clear ip6_info? or pd_info?
++	clear_pd_info(interface);
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            PD_PROP_NAME_PREFIX,
++            interface);
++
++
++    /* Erase any previous setting of the dhcp result property */
++    property_set(result_prop_name, "");
++
++	snprintf(daemon_cmd, sizeof(daemon_cmd), "%s:%s", PD_DAEMON_NAME, interface);
++
++    memset(prop_value, '\0', PROPERTY_VALUE_MAX);
++
++	ALOGD("Got stop_pd command when start PD request.");
++	snprintf(errmsgPD, sizeof(errmsgPD), "%s", "Got stop_pd command when start PD request.");
++
++	return -1;
++
++	property_set(ctrl_prop, daemon_cmd);
++
++	ALOGD("%s", daemon_cmd);
++    if (wait_for_property_usedByPD(PD_DAEMON_PROP_NAME, desired_status, 10) < 0) {
++		ALOGD("PD_Request: start dhcp6c_Pd service fail.");
++        snprintf(errmsgPD, sizeof(errmsgPD), "%s", "Timed out waiting for dhcp6c to start");
++
++        return -1;
++    }
++
++    /* Wait for the daemon to return a result */
++    if (wait_for_property_usedByPD(result_prop_name, NULL, 30) < 0) {
++        snprintf(errmsgPD, sizeof(errmsgPD), "%s", "Timed out waiting for DHCPv6PD to finish");
++        return -1;
++    }
++
++    if (!property_get(result_prop_name, prop_value, NULL)) {
++        /* shouldn't ever happen, given the success of wait_for_property_usedByPD() */
++        snprintf(errmsgPD, sizeof(errmsgPD), "%s", "DHCPv6 result property was not set");
++        return -1;
++    }
++	//char res[PROPERTY_VALUE_MAX] = {0};
++	//property_get("net.ipv6.wlan0.prefix", res, NULL);
++	fill_PD_info(interface, prefix, lease);
++
++    if (strcmp(prop_value, "ok") == 0) {
++		ALOGD("PD all ok.");
++        return 0;
++    } else {
++        snprintf(errmsgPD, sizeof(errmsgPD), "DHCPv6 result was %s", prop_value);
++        return -1;
++    }
++}
++
++/* the dhcpv6 client deamon can automatically update these properties,
++ * so, renew operation only need to read these properties again.
++ * */
++int dhcpv6_PD_renew(const char *interface, char *prefix, uint32_t *lease)
++{
++	int ret;
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.renewresult",
++            PD_PROP_NAME_PREFIX,
++            interface);
++
++    /* send renew to the dhcp6c */
++
++	if ((ret = system("dhcp6ctl renew")) < 0)
++	{
++		snprintf(errmsgPD, sizeof(errmsgPD), "%s:%d\n", "execute renew command, got error return code:", ret);
++		return -1;
++	}
++
++	/* Wait for the daemon to return a result */
++	if (wait_for_property_usedByPD(result_prop_name, NULL, 30) < 0) {
++		snprintf(errmsgPD, sizeof(errmsgPD), "%s", "Timed out waiting for PD renew to finish");
++		return -1;
++	}
++
++	if (!property_get(result_prop_name, prop_value, NULL)) {
++		/* shouldn't ever happen, given the success of wait_for_property_usedByPD() */
++		snprintf(errmsgPD, sizeof(errmsgPD), "%s", "PD renew result property was not set");
++		return -1;
++	}
++	if (strcmp(prop_value, "ok") == 0) {
++		/* Erase any previous setting of the dhcp result property */
++		property_set(result_prop_name, "");
++
++		fill_PD_info(interface, prefix, lease);
++		return 0;
++	} else {
++		snprintf(errmsgPD, sizeof(errmsgPD), "PD renew result was %s", prop_value);
++		return -1;
++	}
++}
++
++int dhcpv6_PD_stop(const char *interface)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    const char *ctrl_prop = "ctl.stop";
++    const char *desired_status = "stopped";
++
++	ALOGD("dhcpv6_PD_STOP.");
++	if (interface == NULL)
++	{
++		snprintf(errmsgPD, sizeof(errmsgPD), "PD interface is NULL");
++		return -1;
++	}
++
++    snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++            PD_PROP_NAME_PREFIX,
++            interface);
++
++
++    /* Stop the daemon and wait until it's reported to be stopped */
++    property_set(ctrl_prop, PD_DAEMON_NAME);
++	// should use wait_for_property(), but not wait_for_property_usedByPD(), so don't stop itself
++    if (wait_for_property(PD_DAEMON_PROP_NAME, desired_status, 5) < 0) {
++        snprintf(errmsgPD, sizeof(errmsgPD), "%s", "Timed out waiting for dhcpv6PD to stop");
++        return -1;
++    }
++    property_set(result_prop_name, "released");
++	clear_pd_info(interface);
++
++    return 0;
++}
++
++/*
++ * Get any available DHCPv6 results.
++*/
++int dhcpv6_get_results(const char *interface, char *ipaddr,
++        char *dns1, char *dns2, uint32_t *lease, int isrenew)
++{
++    char result_prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX] = {'\0'};
++    FILE * fp;
++
++    if (isrenew)
++        snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.renewresult",
++                 DHCPv6_PROP_NAME_PREFIX, interface);
++    else
++        snprintf(result_prop_name, sizeof(result_prop_name), "%s.%s.result",
++                 DHCPv6_PROP_NAME_PREFIX, interface);
++
++    ALOGD("[dhcpv6_get_results] result_prop_name = %s; isrenew = %d", result_prop_name, isrenew);
++    if (!property_get(result_prop_name, prop_value, NULL)) {
++        /* shouldn't ever happen, given the success of wait_for_property() */
++        snprintf(errmsgv6, sizeof(errmsgv6), "%s", "DHCPv6 result property was not set");
++        ALOGD("[dhcpv6_get_results] prop_value = %s", prop_value);
++        return -1;
++    }
++    ALOGD("[dhcpv6_get_results] prop_value = %s", prop_value);
++    if (strcmp(prop_value, "ok") == 0) {
++        if (isrenew) {
++            /* Erase any previous setting of the dhcp result property */
++            property_set(result_prop_name, "");
++        }
++        /* fill_ip_info(interface, ipaddr, gateway, mask, dns1, dns2, server, lease); */
++        fill_ip6_info(interface, ipaddr, dns1, dns2, lease);
++        return 0;
++    } else {
++        snprintf(errmsgv6, sizeof(errmsgv6), "DHCPv6 result was %s", prop_value);
++        return -1;
++    }
++}
++#endif
 diff --git a/libnetutils/ifc_utils.c b/libnetutils/ifc_utils.c
-index 7739cf4..72832aa 100644
+index 7739cf4..394448d 100644
 --- a/libnetutils/ifc_utils.c
 +++ b/libnetutils/ifc_utils.c
-@@ -37,6 +37,9 @@
+@@ -37,6 +37,7 @@
  #include <linux/ipv6_route.h>
  #include <linux/rtnetlink.h>
  #include <linux/sockios.h>
-+#ifdef MTK_HARDWARE
 +#include <linux/un.h>
-+#endif
  
  #include "netutils/ifc.h"
  
-@@ -54,6 +57,9 @@
+@@ -51,9 +52,11 @@
+ #define ALOGW printf
+ #endif
+ 
++#include <fcntl.h>
  #if defined(__ANDROID__)
  /* SIOCKILLADDR is an Android extension. */
  #define SIOCKILLADDR 0x8939
-+#ifdef MTK_HARDWARE
 +#define SIOCKILLSOCK 0x893a
-+#endif
  #endif
  
  static int ifc_ctl_sock = -1;
-@@ -737,3 +743,320 @@ ifc_configure(const char *ifname,
+@@ -62,9 +65,10 @@ static pthread_mutex_t ifc_sock_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+ static pthread_mutex_t ifc_sock6_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+ void printerr(char *fmt, ...);
+ 
+-#define DBG 0
++#define DBG 1
+ #define INET_ADDRLEN 4
+ #define INET6_ADDRLEN 16
++const char ipv6_proc_path[] = "/proc/sys/net/ipv6/conf";
+ 
+ in_addr_t prefixLengthToIpv4Netmask(int prefix_length)
+ {
+@@ -135,7 +139,7 @@ int ifc_init(void)
+     }
+ 
+     ret = ifc_ctl_sock < 0 ? -1 : 0;
+-    if (DBG) printerr("ifc_init_returning %d", ret);
++    if (0) printerr("ifc_init_returning %d", ret);
+     return ret;
+ }
+ 
+@@ -153,7 +157,7 @@ int ifc_init6(void)
+ 
+ void ifc_close(void)
+ {
+-    if (DBG) printerr("ifc_close");
++    if (0) printerr("ifc_close");
+     if (ifc_ctl_sock != -1) {
+         (void)close(ifc_ctl_sock);
+         ifc_ctl_sock = -1;
+@@ -173,7 +177,8 @@ void ifc_close6(void)
+ static void ifc_init_ifr(const char *name, struct ifreq *ifr)
+ {
+     memset(ifr, 0, sizeof(struct ifreq));
+-    strlcpy(ifr->ifr_name, name, IFNAMSIZ);
++    strncpy(ifr->ifr_name, name, IFNAMSIZ);
++    ifr->ifr_name[IFNAMSIZ - 1] = 0;
+ }
+ 
+ int ifc_get_hwaddr(const char *name, void *ptr)
+@@ -419,6 +424,7 @@ int ifc_clear_ipv6_addresses(const char *name) {
+     }
+ 
+     fclose(f);
++    ALOGD("ifc_clear_ipv6_addresses return %d", lasterror);
+     return lasterror;
+ }
+ 
+@@ -435,6 +441,7 @@ void ifc_clear_ipv4_addresses(const char *name) {
+             ifc_set_addr(name, 0);
+     }
+     ifc_close();
++    ALOGD("ifc_clear_ipv4_addresses return");
+ }
+ 
+ /*
+@@ -624,26 +631,23 @@ int ifc_disable(const char *ifname)
+ int ifc_reset_connections(const char *ifname, const int reset_mask)
+ {
+ #if defined(__ANDROID__)
+-    int result = 0, success;
++    int result, success;
+     in_addr_t myaddr = 0;
+     struct ifreq ifr;
+     struct in6_ifreq ifr6;
+-    int ctl_sock = -1;
+ 
+     if (reset_mask & RESET_IPV4_ADDRESSES) {
+         /* IPv4. Clear connections on the IP address. */
+-        ctl_sock = socket(AF_INET, SOCK_DGRAM, 0);
+-        if (ctl_sock >= 0) {
+-            if (!(reset_mask & RESET_IGNORE_INTERFACE_ADDRESS)) {
+-                ifc_get_info(ifname, &myaddr, NULL, NULL);
+-            }
+-            ifc_init_ifr(ifname, &ifr);
+-            init_sockaddr_in(&ifr.ifr_addr, myaddr);
+-            result = ioctl(ctl_sock, SIOCKILLADDR,  &ifr);
+-            close(ctl_sock);
+-        } else {
+-            result = -1;
++        ifc_init();
++        if (!(reset_mask & RESET_IGNORE_INTERFACE_ADDRESS)) {
++            ifc_get_info(ifname, &myaddr, NULL, NULL);
+         }
++        ifc_init_ifr(ifname, &ifr);
++        init_sockaddr_in(&ifr.ifr_addr, myaddr);
++        result = ioctl(ifc_ctl_sock, SIOCKILLADDR,  &ifr);
++        ifc_close();
++    } else {
++        result = 0;
+     }
+ 
+     if (reset_mask & RESET_IPV6_ADDRESSES) {
+@@ -653,18 +657,14 @@ int ifc_reset_connections(const char *ifname, const int reset_mask)
+          * So we clear all unused IPv6 connections on the device by specifying an
+          * empty IPv6 address.
+          */
+-        ctl_sock = socket(AF_INET6, SOCK_DGRAM, 0);
++        ifc_init6();
+         // This implicitly specifies an address of ::, i.e., kill all IPv6 sockets.
+         memset(&ifr6, 0, sizeof(ifr6));
+-        if (ctl_sock >= 0) {
+-            success = ioctl(ctl_sock, SIOCKILLADDR,  &ifr6);
+-            if (result == 0) {
+-                result = success;
+-            }
+-            close(ctl_sock);
+-        } else {
+-            result = -1;
++        success = ioctl(ifc_ctl_sock6, SIOCKILLADDR,  &ifr6);
++        if (result == 0) {
++            result = success;
+         }
++        ifc_close6();
+     }
+ 
+     return result;
+@@ -732,8 +732,390 @@ ifc_configure(const char *ifname,
+     property_set(dns_prop_name, dns1 ? ipaddr_to_string(dns1) : "");
+     snprintf(dns_prop_name, sizeof(dns_prop_name), "net.%s.dns2", ifname);
+     property_set(dns_prop_name, dns2 ? ipaddr_to_string(dns2) : "");
+-    snprintf(dns_prop_name, sizeof(dns_prop_name), "net.%s.gw", ifname);
+-    property_set(dns_prop_name, gateway ? ipaddr_to_string(gateway) : "");
  
      return 0;
  }
 +
-+#ifdef MTK_HARDWARE
 +int ifc_reset_connection_by_uid(int uid, int error)
 +{
-+#if defined(__ANDROID__)
++#ifdef HAVE_ANDROID_OS
 +
 +    int tcp_ctl_sock;
 +    int result = -1;
@@ -509,8 +2206,365 @@ index 7739cf4..72832aa 100644
 +    return ret;
 +}
 +
++static int setEnableIPv6(char* ifname, int on) {
++    char *path;
++    const char *value = on ? "0" : "1";
++    unsigned int size = strlen(value);
 +
++    //full path: proc/sys/net/ipv6/conf/ifname/disalbe_ipv6
++    asprintf(&path, "%s/%s/%s", ipv6_proc_path, ifname, "disable_ipv6");
++    ALOGE("setEnableIPv6: set path %s to %s", path, value);
++    int fd = open(path, O_WRONLY);
++    if (fd < 0) {
++        ALOGE("Failed to open %s: %s", path, strerror(errno));
++        return -1;
++    }
++
++    if (write(fd, value, size) != size) {
++        ALOGE("Failed to write %s: %s", path, strerror(errno));
++        close(fd);
++        return -1;
++    }
++    close(fd);
++    free(path);
++    return 0;
++}
++
++static int setIPv6DefaultRoute(char* ifname, int on) {
++    char *path;
++    const char *value = on ? "1" : "0";
++    unsigned int size = strlen(value);
++
++    //full path: /proc/sys/net/ipv6/conf/ccmni0/accept_ra_defrtr
++    asprintf(&path, "%s/%s/%s", ipv6_proc_path, ifname, "accept_ra_defrtr");
++    ALOGE("setIPv6DefaultRoute: set path %s to %s", path, value);
++    int fd = open(path, O_WRONLY);
++    if (fd < 0) {
++        ALOGE("Failed to open %s: %s", path, strerror(errno));
++        return -1;
++    }
++
++    if (write(fd, value, size) != size) {
++        ALOGE("Failed to write %s: %s", path, strerror(errno));
++        close(fd);
++        return -1;
++    }
++    close(fd);
++    free(path);
++    return 0;
++}
++
++
++
++
++int ifc_ipv6_trigger_rs(char *ifname){
++    int errNo = setEnableIPv6(ifname, 0);
++     if (errNo < 0) {
++         ALOGE("ifc_ipv6_irat_triger_rs disable interface %s IPv6 fail %d",ifname, errNo);
++     }
++     errNo = setEnableIPv6(ifname, 1);
++     if (errNo < 0) {
++         ALOGE("ifc_ipv6_irat_triger_rs enalbe interface %s IPv6 fail %d",ifname, errNo);
++     }
++
++    //set accept_ra_defrtr 1
++    errNo = setIPv6DefaultRoute(ifname,1);
++    if (errNo < 0) {
++         ALOGE("ifc_ipv6_irat_triger_rs enalbe interface %s accept_ra_defrtr fail %d",ifname, errNo);
++     }
++
++    return 0;
++}
++
+diff --git a/libnetutils/pppoe_utils.c b/libnetutils/pppoe_utils.c
+new file mode 100644
+index 0000000..70d43b0
+--- /dev/null
++++ b/libnetutils/pppoe_utils.c
+@@ -0,0 +1,283 @@
++/*
++ * Copyright 2008, The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License"); 
++ * you may not use this file except in compliance with the License. 
++ * You may obtain a copy of the License at 
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0 
++ *
++ * Unless required by applicable law or agreed to in writing, software 
++ * distributed under the License is distributed on an "AS IS" BASIS, 
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
++ * See the License for the specific language governing permissions and 
++ * limitations under the License.
++ */
++
++/* Utilities for managing the dhcpcd DHCP client daemon */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <arpa/inet.h>
++#include <netinet/in.h>
++
++#include <cutils/properties.h>
++#include <errno.h>
++#include <fcntl.h>
++
++#ifdef ANDROID
++#define LOG_TAG "PPPOEUtils"
++#include <cutils/log.h>
++#else
++#include <stdio.h>
++#include <string.h>
++#define ALOGD printf
++#define ALOGE printf
 +#endif
++
++static const char PPPOE_DAEMON_NAME[]        = "pppoe_wlan0";
++static const char PPPOE_DAEMON_PROP_NAME[]   = "init.svc.pppoe_wlan0";
++static const char HOSTNAME_PROP_NAME[] = "net.hostname";
++static const char PPPOE_PROP_NAME_PREFIX[]  = "pppoe";
++static const int NAP_TIME = 200;   /* wait for 200ms at a time */
++                                  /* when polling for property values */
++static char errmsg[100];
++static char * PPPOE_RESULT_KEY= "net.pppoe.status";
++
++#define INITIAL_STATUS "-2"
++#define PATH_OF_PID "/data/misc/ppp/"
++
++static void clear_ip_info()
++{
++    char prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++
++	char interface[PROPERTY_VALUE_MAX];
++	property_get("net.pppoe.interface", interface, NULL);
++	ALOGD("clear_ip_info: pppoe_interface=%s", interface);
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.local-ip", interface);
++    property_set(prop_name, "");
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.remote-ip", interface);
++    property_set(prop_name, "");
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.gw", interface);
++    property_set(prop_name, "");
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.dns1", interface);
++    property_set(prop_name, "");
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.dns2", interface);
++    property_set(prop_name, "");
++}
++
++
++/*
++ * Wait for a system property to be assigned a specified value.
++ * If desired_value is NULL, then just wait for the property to
++ * be created with any value. maxwait is the maximum amount of
++ * time in seconds to wait before giving up.
++ */
++static int wait_for_property(const char *name, const char *desired_value, int maxwait)
++{
++    char value[PROPERTY_VALUE_MAX] = {'\0'};
++    int maxnaps = (maxwait * 1000) / NAP_TIME;
++
++    if (maxnaps < 1) {
++        maxnaps = 1;
++    }
++
++    while (maxnaps-- > 0) {
++        usleep(NAP_TIME * 1000);
++        if (property_get(name, value, NULL)) {
++            if (desired_value == NULL || 
++                    strcmp(value, desired_value) == 0) {
++                return 0;
++            }
++        }
++    }
++    return -1; /* failure */
++}
++
++static int fill_ip_info( char *iplocal,
++		char *ipremote,
++		char *gateway,
++		char *dns1,
++		char *dns2,
++		char *ppplinkname)
++{
++	char prop_name[PROPERTY_KEY_MAX];
++    char prop_value[PROPERTY_VALUE_MAX];
++
++	//char interface[PROPERTY_VALUE_MAX];
++	property_get("net.pppoe.interface", ppplinkname, NULL);
++	ALOGD("fill_ip_info: pppoe_interface=%s", ppplinkname);
++	
++	snprintf(prop_name, sizeof(prop_name), "net.%s.local-ip", ppplinkname);
++    property_get(prop_name, iplocal, NULL);
++	ALOGD(",iplocal=%s", iplocal);
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.remote-ip", ppplinkname);
++    property_get(prop_name, ipremote, NULL);
++	ALOGD(",ipremote=%s", ipremote);
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.gw", ppplinkname);
++    property_get(prop_name, gateway, NULL);
++	ALOGD(",gateway=%s", gateway);
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.dns1", ppplinkname);
++    property_get(prop_name, dns1, NULL);
++	ALOGD(",dns1=%s", dns1);
++
++	snprintf(prop_name, sizeof(prop_name), "net.%s.dns2", ppplinkname);
++    property_get(prop_name, dns2, NULL);
++	ALOGD(",dns2=%s\n", dns2);
++
++	return 0;
++}
++
++/*
++ * Start the PPPOE client daemon, and wait for it to finish
++ * configuring the interface.
++ *
++ * The device init.rc file needs a corresponding entry for this work.
++ *
++ * Example:
++ * service pppoe_<interface> /system/bin/pppoe .....
++ */
++int PPPOE_do_request(const char *interface, int timeout_sec, const char *usr, const char *passwd, int interval, int failure, int mtu, int mru, int mss,
++		char* iplocal, char* ipremote, char* gateway, char* dns1, char* dns2, char* ppplinkname)
++{
++    char pppoe_result_value[PROPERTY_VALUE_MAX] = {'\0'};
++    char daemon_cmd[92/*64*/];
++    const char *ctrl_prop = "ctl.start";
++    const char *desired_status = "running";
++	int ret;
++ 
++	char value[PROPERTY_VALUE_MAX] = {'\0'};
++	property_get(PPPOE_DAEMON_PROP_NAME, value, NULL);
++	if (strcmp(value, desired_status) == 0)
++	{
++		ALOGE("duplicate: init.svc.pppoe* is running, cannot start twice.");
++		return -2;
++	}
++
++	if (timeout_sec < 5)
++	{
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timeout setting: too short. Use default value(5s),instead.");
++		timeout_sec = 5;
++	}
++
++    /* Erase any previous setting of the dhcp result property */
++    property_set(PPPOE_RESULT_KEY, "");
++
++	snprintf(daemon_cmd, sizeof(daemon_cmd), "%s:%s %d %d %d %s %s %d %d", PPPOE_DAEMON_NAME,
++			interface, mss, mtu, mru, usr, passwd, interval, failure);
++
++	ALOGD("Start command:%s\n", daemon_cmd);
++	ALOGD("timeout_sec=%d\n", timeout_sec);
++
++
++    property_set(ctrl_prop, daemon_cmd);
++
++    if (wait_for_property(PPPOE_DAEMON_PROP_NAME, desired_status, 5) < 0) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timed out waiting for PPPOE to start");
++		ALOGE("%s", "init.svc.pppoe* != running.");
++
++        return -2;
++    }
++
++    /* Wait for the daemon to return a result */
++    if (wait_for_property(PPPOE_RESULT_KEY, NULL, timeout_sec) < 0) {
++        snprintf(errmsg, sizeof(errmsg), "%s", "Timed out waiting for PPPOE to finish");
++		ALOGE("%s", "net.pppoe.status == NULL.");
++        return -2;
++    }
++
++	property_get(PPPOE_RESULT_KEY, pppoe_result_value, NULL);
++	if (strcmp(pppoe_result_value, "0") == 0)
++	{
++		fill_ip_info(iplocal, ipremote, gateway, dns1, dns2, ppplinkname);
++	}
++	else
++	{
++		ALOGE("net.pppoe.status == %s.", pppoe_result_value);
++	}
++
++	ret = atoi(pppoe_result_value);
++	ALOGD("pppoe_do_request return value: %d\n", ret);
++	return ret;
++}
++
++
++#define MAXPATHLEN 128
++static pid_t read_pid(void)
++{
++	FILE *fp;
++	pid_t pid;
++	char pidfile[MAXPATHLEN];
++
++	char iface[PROPERTY_VALUE_MAX];
++	property_get("net.pppoe.interface", iface, NULL);
++
++	snprintf(pidfile, MAXPATHLEN, "%s%s.pid", PATH_OF_PID, iface);
++	if ((fp = fopen(pidfile, "r")) == NULL) 
++	{
++		ALOGE("%s", "Failed to open pid file.");
++		return 0;
++	}
++	if (fscanf(fp, "%d", &pid) != 1)
++		pid = 0;
++	fclose(fp);
++	return pid;
++}
++/**
++ * Stop the PPPOE client daemon.
++ */
++int PPPOE_stop(const char *interface)
++{
++	char command[PROPERTY_VALUE_MAX];
++	pid_t pid = read_pid();
++	if (pid > 0)
++	{
++		snprintf(command, PROPERTY_VALUE_MAX, "kill -9 %d", pid);
++		ALOGD("system: %s", command);
++		if (-1 == system(command))
++		{
++			ALOGE("Failed to execute kill system command.");
++			return -1;
++		}
++		clear_ip_info();
++		return 0;
++	}
++	else
++	{
++		ALOGE("pid less than 0");
++		return -1;
++	}
++	
++    /* Stop the daemon and wait until it's reported to be stopped */
++	/*
++    const char *ctrl_prop = "ctl.stop";
++
++    property_set(ctrl_prop, PPPOE_DAEMON_NAME);
++
++    if (wait_for_property(PPPOE_DAEMON_PROP_NAME, "stopped", 5) < 0) {
++		ALOGD("%s", "Fail: pppoe service not set to Stopped in 5 seconds.");
++        return -1;
++    }
++
++    property_set(PPPOE_RESULT_KEY, "-2");
++
++	clear_ip_info();
++
++    return 0;
++	*/
++}
++
++char *PPPOE_get_errmsg() {
++    return errmsg;
++}
 -- 
-1.9.1
+2.7.4
 

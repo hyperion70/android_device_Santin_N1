@@ -11,7 +11,6 @@ lib64/libMTKAudioTimeStretch.so
 lib64/libjni_fancycolor.so
 lib64/libjni_filtershow_filters.so
 lib64/libjni_stereoapplication.so
-lib64/libnetutils.so
 lib64/libxml2.so
 lib64/libjni_depthgenerator.so
 lib64/libjni_jpegstream.so
@@ -49,7 +48,6 @@ lib/libjni_fancycolor.so
 lib/libjni_filtershow_filters.so
 lib/libjni_stereoapplication.so
 lib/liblogwrap.so
-lib/libnetutils.so
 lib/libxml2.so
 lib/libjni_depthgenerator.so
 lib/libext2_com_err.so
