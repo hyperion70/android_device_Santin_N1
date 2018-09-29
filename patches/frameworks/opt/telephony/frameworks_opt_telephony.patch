@@ -1,12 +1,16 @@
-From 038f1200a8b69bb7255a95d6459be7b588439144 Mon Sep 17 00:00:00 2001
-From: mdeejay <mdjrussia@gmail.com>
-Date: Mon, 3 Jul 2017 01:26:11 +0700
-Subject: changes for MTK
+From ebab8e5fef2c1a66c3153e0029cadaa17f02bff1 Mon Sep 17 00:00:00 2001
+From: hyperion70 <bmaximov71@gmail.com>
+Date: Fri, 28 Sep 2018 14:30:15 +0300
+Subject: [PATCH] frameworks_opt/telephony
 
-Change-Id: I5623b6d1804387d39b37c2fc55c0d91ef1520e5e
+Change-Id: I60b93835215e420535c774d49924146ab413ae79
+---
+ src/java/com/android/internal/telephony/uicc/IccFileHandler.java | 2 +-
+ src/java/com/android/internal/telephony/uicc/UiccTlvData.java    | 9 ++-------
+ 2 files changed, 3 insertions(+), 8 deletions(-)
 
 diff --git a/src/java/com/android/internal/telephony/uicc/IccFileHandler.java b/src/java/com/android/internal/telephony/uicc/IccFileHandler.java
-index 6f944bda..4b43bf26 100644
+index 6f944bd..4b43bf2 100644
 --- a/src/java/com/android/internal/telephony/uicc/IccFileHandler.java
 +++ b/src/java/com/android/internal/telephony/uicc/IccFileHandler.java
 @@ -291,7 +291,7 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
@@ -19,7 +23,7 @@ index 6f944bda..4b43bf26 100644
  
      /**
 diff --git a/src/java/com/android/internal/telephony/uicc/UiccTlvData.java b/src/java/com/android/internal/telephony/uicc/UiccTlvData.java
-index 17f594c0..5cb57a21 100644
+index 17f594c..5cb57a2 100644
 --- a/src/java/com/android/internal/telephony/uicc/UiccTlvData.java
 +++ b/src/java/com/android/internal/telephony/uicc/UiccTlvData.java
 @@ -1,13 +1,9 @@
@@ -48,3 +52,6 @@ index 17f594c0..5cb57a21 100644
                  }
              }
  
+-- 
+2.7.4
+

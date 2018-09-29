@@ -1,9 +1,13 @@
-From 0b27d23f899fe5e0a71d15e9a1d9bda9b4f4b9e7 Mon Sep 17 00:00:00 2001
-From: mdeejay <mdjrussia@gmail.com>
-Date: Mon, 3 Jul 2017 01:21:27 +0700
-Subject: changes for MTK
+From 2f33a6881017fd1b8d6fe99c8309bdf2d22c4d8a Mon Sep 17 00:00:00 2001
+From: hyperion70 <bmaximov71@gmail.com>
+Date: Fri, 28 Sep 2018 14:27:31 +0300
+Subject: [PATCH] system_netd
 
-Change-Id: I3ebe8d6d2734c5c574242f50c5b5606a5fc38570
+Change-Id: I30d4856032993c218b24f7d1ce457d6072ef9c9f
+---
+ server/NatController.cpp    | 4 +++-
+ server/SoftapController.cpp | 6 ++++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/server/NatController.cpp b/server/NatController.cpp
 index cda8f5f..c966a11 100644
@@ -21,10 +25,11 @@ index cda8f5f..c966a11 100644
          goto err_rpfilter;
      }
 diff --git a/server/SoftapController.cpp b/server/SoftapController.cpp
-index 1c59ec3..2e6d05c 100755
+index 4a7c8d7..969fe8a 100755
 --- a/server/SoftapController.cpp
 +++ b/server/SoftapController.cpp
-@@ -54,7 +54,8 @@ using android::base::WriteStringToFile;
+@@ -53,7 +53,8 @@ using android::base::WriteStringToFile;
+ #include "wpa_ctrl.h"
  #endif
  
 -std:: string hostapd_unix_file(StringPrintf("/data/misc/wifi/hostapd/wlan0"));
@@ -33,7 +38,6 @@ index 1c59ec3..2e6d05c 100755
  #ifdef LIBWPA_CLIENT_EXISTS
  static const char HOSTAPD_DHCP_DIR[]    = "/data/misc/dhcp";
  #endif
- static const char HOSTAPD_CONF_FILE[]    = "/data/misc/wifi/hostapd.conf";
 @@ -289,7 +290,8 @@ int SoftapController::setSoftap(int argc, char *argv[]) {
              "hw_mode=%c\n"
              "ignore_broadcast_ssid=%d\n"
@@ -44,3 +48,6 @@ index 1c59ec3..2e6d05c 100755
  
      std::string fbuf;
      if (argc > 7) {
+-- 
+2.7.4
+
