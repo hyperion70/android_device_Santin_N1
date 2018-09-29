@@ -142,13 +142,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     Snap
 
-# CM14 mtk symbols
-PRODUCT_PACKAGES += \
-    libshim_bio \
-    libshim_ui \
-    libshim_aud \
-    libshim_ifc
-
 # Disable adb security
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
 	ro.mount.fs=EXT4 \
