@@ -184,10 +184,7 @@ PRODUCT_SYSTEM_SERVER_JARS += com.cyanogenmod.keyhandler
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/libnfc-nxp_RF.conf:system/vendor/libnfc-nxp_RF.conf
 
-# Power
-PRODUCT_PACKAGES += \
-    power.mt6757
-
+# Charger
 PRODUCT_PACKAGES += \
     charger \
     charger_res_images \
