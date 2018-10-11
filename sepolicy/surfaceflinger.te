@@ -130,3 +130,5 @@ binder_call(surfaceflinger, ipod)
 
 allow surfaceflinger proc_ged:file {open read write ioctl getattr};
 
+allow surfaceflinger debugfs_ged:dir search;
+

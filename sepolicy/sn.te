@@ -39,8 +39,11 @@ allow sn storage_file:lnk_file read;
 # Operation : SQC
 # Purpose : for sn service access serial number file
 allow sn media_rw_data_file:dir search;
+allow sn media_rw_data_file:dir { read open };
 allow sn media_rw_data_file:file { open read };
 
 # by darklord4822
 allow sn tmpfs:dir { search };
+#
+allow sn vfat:dir { read open };
 
