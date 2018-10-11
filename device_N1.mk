@@ -99,6 +99,7 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/rootdir/init.modem.rc:root/init.modem.rc \
     $(LOCAL_PATH)/rootdir/init.mt6757.rc:root/init.mt6757.rc \
     $(LOCAL_PATH)/rootdir/init.mt6757.usb.rc:root/init.mt6757.usb.rc \
+    $(LOCAL_PATH)/rootdir/init.oae.rc:root/init.oae.rc \
     $(LOCAL_PATH)/rootdir/init.project.rc:root/init.project.rc \
     $(LOCAL_PATH)/rootdir/init.rilproxy.rc:root/init.rilproxy.rc \
     $(LOCAL_PATH)/rootdir/init.sensor.rc:root/init.sensor.rc \
@@ -140,17 +141,18 @@ PRODUCT_PACKAGES += \
     Snap
 
 # Disable adb security
+ADDITIONAL_DEFAULT_PROPERTIES += ro.adb.secure=0
+ADDITIONAL_DEFAULT_PROPERTIES += ro.secure=0
+ADDITIONAL_DEFAULT_PROPERTIES += ro.debuggable=1
+ADDITIONAL_DEFAULT_PROPERTIES += persist.sys.usb.config=mtp,adb
+ADDITIONAL_DEFAULT_PROPERTIES += ro.allow.mock.location=1
+
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
 	ro.mount.fs=EXT4 \
-	ro.adb.secure=0 \
-	ro.secure=0 \
-	ro.allow.mock.location=0 \
-	ro.debuggable=1 \
 	persist.service.acm.enable=0 \
 	camera.disable_zsl_mode=1 \
 	persist.radio.lte.chip=0 \
-	ro.config.low_ram=false \
-	persist.sys.usb.config=mtp
+	ro.config.low_ram=false
 
 # IO Scheduler
 PRODUCT_PROPERTY_OVERRIDES += \
