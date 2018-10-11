@@ -1,9 +1,9 @@
-From ebab8e5fef2c1a66c3153e0029cadaa17f02bff1 Mon Sep 17 00:00:00 2001
+From 5e785b4130c6deb9b9b34974ff7422ff9ec2feaa Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Fri, 28 Sep 2018 14:30:15 +0300
-Subject: [PATCH] frameworks_opt/telephony
+Date: Sat, 6 Oct 2018 14:10:27 +0300
+Subject: [PATCH] frameworks_opt_telephony
 
-Change-Id: I60b93835215e420535c774d49924146ab413ae79
+Change-Id: I4f156a081d1c65535047bcf55d8219f72ed56903
 ---
  src/java/com/android/internal/telephony/uicc/IccFileHandler.java | 2 +-
  src/java/com/android/internal/telephony/uicc/UiccTlvData.java    | 9 ++-------

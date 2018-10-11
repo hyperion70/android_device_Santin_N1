@@ -8,8 +8,8 @@ import init.fon.rc
 import init.rilproxy.rc
 import init.volte.rc
 import init.mal.rc
-import init.epdg.rc
-import init.wfca.rc
+import multi_init.rc
+import init.oae.rc
 import init.trustonic.rc
 import init.common_svc.rc
 import init.microtrust.rc

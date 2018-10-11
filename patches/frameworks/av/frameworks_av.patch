@@ -1,9 +1,9 @@
-From cb01880a55597e08a1a1bfe7d76c24250eb5ee54 Mon Sep 17 00:00:00 2001
+From 8d091c33177bf3eefc59759bb1ba6aa6455784ea Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Fri, 28 Sep 2018 14:17:13 +0300
+Date: Sat, 6 Oct 2018 14:07:32 +0300
 Subject: [PATCH] frameworks_av
 
-Change-Id: Icaac9e66b18e87953b1c2c7822aec6590199fa05
+Change-Id: Idaad4fb8756fb608c78ff1d68cf55b1f6bfa1c1b
 ---
  include/media/AudioSystem.h                        |   8 +
  include/media/IAudioFlinger.h                      |   8 +

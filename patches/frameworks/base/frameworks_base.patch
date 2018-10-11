@@ -1,18 +1,18 @@
-From 0b401e1734421de38217876d0916c2f3997bf8f4 Mon Sep 17 00:00:00 2001
+From 08898d95e146f5664438b00b49af00fca226ce69 Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Fri, 5 Oct 2018 18:13:37 +0300
+Date: Sat, 6 Oct 2018 14:08:17 +0300
 Subject: [PATCH] frameworks_base
 
-Change-Id: I1fc7137090157c8fe4cffaf89dd22ddb80bbea03
+Change-Id: I1a0bd41c033472ac5ac47b3b90cea8f73d0627b6
 ---
  core/jni/android_media_AudioSystem.cpp             | 136 +++++++++++++++++++++
  core/jni/fd_utils-inl.h                            |   2 +-
  libs/hwui/Android.mk                               |   7 ++
- libs/hwui/mediatek/MTKProgramAtlas.cpp             |  42 +++++++
+ libs/hwui/mediatek/MTKProgramAtlas.cpp             |  45 +++++++
  libs/hwui/mediatek/MTKProgramAtlas.h               |  90 ++++++++++++++
  media/java/android/media/AudioSystem.java          |  57 ++++++++-
  .../com/android/server/usb/UsbDeviceManager.java   |   6 +-
- 7 files changed, 335 insertions(+), 5 deletions(-)
+ 7 files changed, 338 insertions(+), 5 deletions(-)
  create mode 100644 libs/hwui/mediatek/MTKProgramAtlas.cpp
  create mode 100644 libs/hwui/mediatek/MTKProgramAtlas.h
 
@@ -185,7 +185,7 @@ index a68a602..a8d1635 100644
  
    // TODO: Call android::base::Readlink instead of copying the code here.
 diff --git a/libs/hwui/Android.mk b/libs/hwui/Android.mk
-index cacfce1..acabdf9 100644
+index cacfce1..15927d4 100644
 --- a/libs/hwui/Android.mk
 +++ b/libs/hwui/Android.mk
 @@ -136,6 +136,13 @@ ifeq (true, $(HWUI_NEW_OPS))
@@ -204,10 +204,10 @@ index cacfce1..acabdf9 100644
          font/FontCacheHistoryTracker.cpp
 diff --git a/libs/hwui/mediatek/MTKProgramAtlas.cpp b/libs/hwui/mediatek/MTKProgramAtlas.cpp
 new file mode 100644
-index 0000000..129142f
+index 0000000..c4be97f
 --- /dev/null
 +++ b/libs/hwui/mediatek/MTKProgramAtlas.cpp
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,45 @@
 +/*
 + * Copyright (C) 2018 Tobias Tefke
 + *
@@ -236,10 +236,11 @@ index 0000000..129142f
 +#include <unistd.h>
 +
 +////////////////////////////////////////////////////////////////////////////////////
-+//  [ProgramBinaryAtlas] This is necessary to create symbols in the 
-+//  final library libhwui required for program_binary_builder:
++//  This is necessary to create symbols in the final library libhwui 
++//  required for program_binary_builder:
 +//  _ZN7android10uirenderer12ProgramAtlas14createProgramsEPlPi
 +//  _ZN7android10uirenderer12ProgramAtlas28loadProgramBinariesAndDeleteEPliPvi
++//  _ZN7android10uirenderer12ProgramAtlas9terminateEv
 +////////////////////////////////////////////////////////////////////////////////////
 +
 +extern "C" {
@@ -248,8 +249,10 @@ index 0000000..129142f
 +    }
 +    void android::uirenderer::ProgramAtlas::loadProgramBinariesAndDelete(int64_t* map, int mapLength, void* buffer, int length) {
 +    }
++    void android::uirenderer::ProgramAtlas::terminate() {
++    }
 +}
-+ 
++
 diff --git a/libs/hwui/mediatek/MTKProgramAtlas.h b/libs/hwui/mediatek/MTKProgramAtlas.h
 new file mode 100644
 index 0000000..81ccac2

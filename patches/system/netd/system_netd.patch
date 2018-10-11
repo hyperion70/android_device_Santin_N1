@@ -1,9 +1,9 @@
-From 2f33a6881017fd1b8d6fe99c8309bdf2d22c4d8a Mon Sep 17 00:00:00 2001
+From b2c74538292fe976b91ec1d5ccfcd3a7bd116cac Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Fri, 28 Sep 2018 14:27:31 +0300
+Date: Sat, 6 Oct 2018 14:12:44 +0300
 Subject: [PATCH] system_netd
 
-Change-Id: I30d4856032993c218b24f7d1ce457d6072ef9c9f
+Change-Id: I87f1a93685933ff9d6cb1024d55c151dd2247d02
 ---
  server/NatController.cpp    | 4 +++-
  server/SoftapController.cpp | 6 ++++--

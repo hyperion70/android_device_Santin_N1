@@ -1,9 +1,9 @@
-From 8740823bc2308a4582a4eb1a6f4ef7589d708353 Mon Sep 17 00:00:00 2001
+From 5ffa06d3a15279018d19fd323928b0e13c21c3ba Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Fri, 28 Sep 2018 14:25:33 +0300
+Date: Sat, 6 Oct 2018 14:11:13 +0300
 Subject: [PATCH] system_core
 
-Change-Id: Ic9603908c838e2b5e8db29ca37fd17f8be684143
+Change-Id: Id0516d62d67a69a23de0d354abffc2dfa3a202fd
 ---
  healthd/BatteryMonitor.cpp        |  115 ++--
  healthd/healthd.cpp               |   37 +-
@@ -19,11 +19,11 @@ Change-Id: Ic9603908c838e2b5e8db29ca37fd17f8be684143
  libcutils/fs_config.c             |    2 +-
  libcutils/mtk_audioCompat.c       |    4 +
  libcutils/mtk_xlog.cpp            |   27 +
- libnetutils/Android.mk            |    7 +-
+ libnetutils/Android.mk            |    4 +-
  libnetutils/dhcp_utils.c          | 1172 +++++++++++++++++++++++++++++++++++++
  libnetutils/ifc_utils.c           |  438 +++++++++++++-
  libnetutils/pppoe_utils.c         |  283 +++++++++
- 18 files changed, 2033 insertions(+), 131 deletions(-)
+ 18 files changed, 2031 insertions(+), 130 deletions(-)
  create mode 100644 include/netutils/dhcp_utils.h
  create mode 100644 include/netutils/pppoe.h
  create mode 100644 libcutils/mtk_audioCompat.c
@@ -540,7 +540,7 @@ index 0000000..48abe31
 +	void dl_register_notify_function(int (*load_notify_function) (const char *name, uintptr_t address, uintptr_t size), int(*unload_notify_function) (const char *name, uintptr_t address)){}
 +}
 diff --git a/libnetutils/Android.mk b/libnetutils/Android.mk
-index ff899c0..d342751 100644
+index ff899c0..e0f46d2 100644
 --- a/libnetutils/Android.mk
 +++ b/libnetutils/Android.mk
 @@ -5,7 +5,9 @@ LOCAL_SRC_FILES := \

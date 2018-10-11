@@ -1,9 +1,9 @@
-From 60bd63d3b425df54d0d93cd9aad3eec2c0ec13af Mon Sep 17 00:00:00 2001
+From 72a2d6ce0debe1205220abf3bec6db49bcb97736 Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Fri, 28 Sep 2018 14:29:23 +0300
+Date: Sat, 6 Oct 2018 14:09:32 +0300
 Subject: [PATCH] frameworks_native
 
-Change-Id: If5ba66eec14a48828211dd690dcab15c87e05cef
+Change-Id: Ic6eec65824da6d795c952f76c34ee4d3b2bae649
 ---
  include/gui/BufferQueueCore.h        |   4 --
  include/gui/IProducerListener.h      |   3 -
