@@ -567,6 +567,9 @@ on post-fs-data
 on boot
     write /proc/bootprof "INIT:boot"
 
+    # default is root radio 0440
+    chmod 0644 /proc/cmdline
+
     write /proc/sys/vm/dirty_writeback_centisecs 300
     chmod 0660 /sys/power/autosleep
 

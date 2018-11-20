@@ -32,4 +32,4 @@ Working:
 8. Proximity & light sensors
 9. Accelerometer
 10. GPS and AGPS
-11. RIL partially
+11. RIL
