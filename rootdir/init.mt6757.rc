@@ -39,7 +39,7 @@ on init
     chown shell system /proc/mtk_battery_cmd/discharging_cmd
 
 #change flashlight_select permission
-    write /proc/flashlight_select 0
+    write /proc/flashlight_select 3
     chown root system /proc/flashlight_select
     chmod 0666 /proc/flashlight_select
 
