@@ -9,7 +9,7 @@ on init
 on post-fs-data
 
 # nfc-config
-    mkdir /data/nfc 0770 nfc nfc
+    mkdir /data/nfc 0771 nfc nfc
 
 #Camera
     chmod 0660 /dev/MAINAF
@@ -39,7 +39,7 @@ on post-fs-data
 
 # NFC
     setprop ro.nfc.port "I2C"
-    chmod 0660 /dev/pn544
+    chmod 0777 /dev/pn544
     chown nfc nfc /dev/pn544
 
 

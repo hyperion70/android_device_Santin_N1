@@ -36,7 +36,7 @@
         <value>0.1</value>
     </array>
     <item name="cpu.idle">0.1</item>
-    <item name="battery.capacity">5100</item>
+    <item name="battery.capacity">3200</item>
     <item name="wifi.controller.idle">1.26</item>
     <item name="wifi.controller.rx">156.35</item>
     <item name="wifi.controller.tx">234.21</item>
