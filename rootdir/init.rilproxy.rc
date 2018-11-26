@@ -46,10 +46,6 @@ service ril-daemon-mtk /vendor/bin/mtkrild
     group radio cache inet misc audio sdcard_r sdcard_rw log system
     disabled
     oneshot
-#
-    setprop persist.mtk_ims_support 0
-    setprop persist.mtk_epdg_support 0
-#
 
 on property:ril.rilproxy=1
     start ril-proxy
