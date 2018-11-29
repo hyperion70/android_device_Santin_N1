@@ -15,7 +15,6 @@ lib64/libxml2.so
 lib64/libjni_depthgenerator.so
 lib64/libjni_jpegstream.so
 lib64/libfs_mgr.so
-lib64/libnfc-nci.so
 lib64/libttscompat.so
 lib64/libalsautils.so
 lib64/libmediatek_exceptionlog.so
@@ -29,7 +28,6 @@ lib64/hw/audio_policy.stub.so
 lib64/libfp_client.so
 lib64/egl/libGLES_android.so
 lib64/libfpservice.so
-lib64/libnfc_nci_jni.so
 lib64/libfpjni.so
 lib64/libjni_jpegdecoder.so
 lib64/libfilterpack_facedetect.so
@@ -958,7 +956,6 @@ vendor/firmware/pcm_deepidle_lpddr4.bin
 vendor/firmware/catcher_filter_3_3g_n.bin
 vendor/firmware/pcm_suspend_lpddr4_by_mp1.bin
 vendor/firmware/catcher_filter_1_ulwctg_n.bin
-etc/libnfc-nxp.conf
 etc/init/mediadrmserver.rc
 etc/init/drmserver.rc
 etc/init/dumpstate.rc
@@ -972,7 +969,6 @@ etc/init/cameraserver.rc
 etc/wifi/p2p_supplicant_overlay.conf
 etc/wifi/wpa_supplicant.conf
 etc/wifi/wpa_supplicant_overlay.conf
-etc/libnfc-brcm.conf
 etc/media_codecs.xml
 etc/audio_policy_configuration.xml
 etc/sysconfig/whitelist_com.android.omadm.service.xml
@@ -982,9 +978,7 @@ etc/sysconfig/framework-sysconfig.xml
 etc/sysconfig/google.xml
 etc/media_codecs_mediatek_video.xml
 etc/permissions/platform.xml
-etc/permissions/com.android.nfc_extras.xml
 etc/permissions/com.nxp.mifare.xml
-etc/permissions/android.hardware.nfc.xml
 etc/permissions/com.mediatek.runningbooster.xml
 etc/permissions/android.hardware.opengles.aep.xml
 etc/permissions/android.hardware.telephony.cdma.xml
@@ -994,7 +988,6 @@ etc/permissions/handheld_core_hardware.xml
 etc/permissions/com.google.android.media.effects.xml
 etc/permissions/android.hardware.nfc.hcef.xml
 etc/permissions/privapp-permissions-google.xml
-etc/permissions/android.hardware.nfc.hce.xml
 etc/permissions/android.hardware.camera.xml
 etc/permissions/com.google.widevine.software.drm.xml
 etc/permissions/android.hardware.consumerir.xml
