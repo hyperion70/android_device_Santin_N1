@@ -1,7 +1,7 @@
 Device Tree for Santin N1 (Malata M3 Plus)
 ===========================================
 
-Discussion http://4pda.ru/forum/index.php?showtopic=907106
+Discussion https://t.me/santinn1
 
 Basic   | Spec Sheet
 -------:|:-------------------------
@@ -33,3 +33,11 @@ Working:
 9. Accelerometer
 10. GPS and AGPS
 11. RIL
+12. Bluetooth
+13. NFC
+14. Flashlight
+
+Not working:
+1. AudioFX
+2. Video playback 
+
