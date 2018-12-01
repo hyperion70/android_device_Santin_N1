@@ -45,3 +45,8 @@ allow fuelgauged fuelgauged:netlink_socket create_socket_perms;
 
 # by darklord4822
 allow fuelgauged sysfs:file { read open };
+#
+allow fuelgauged cache_file:dir getattr;
+allow fuelgauged cache_file:file { getattr open read };
+allow fuelgauged self:capability dac_override;
+

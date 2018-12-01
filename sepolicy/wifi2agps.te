@@ -25,3 +25,5 @@ allow wifi2agps self:udp_socket { create ioctl };
 
 # by darklord4822
 allow wifi2agps proc_net:file { read open getattr };
+#
+allow wifi2agps self:netlink_generic_socket read;

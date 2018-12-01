@@ -108,3 +108,7 @@ allow init rootfs:system module_load;
 allow init  debugfs:file { write };
 #allow init system_file:file { execute_no_trans };
 allow init mnld_data_file:sock_file { write };
+#
+allow init gsensor_device:chr_file ioctl;
+allow init msensor_device:chr_file ioctl;
+

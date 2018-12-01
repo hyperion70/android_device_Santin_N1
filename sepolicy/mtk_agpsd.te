@@ -56,4 +56,5 @@ allow mtk_agpsd rilproxy:unix_dgram_socket sendto;
 # Send requests (e.g., DNS / Dedicated APN for IR 92) to LocationExt
 allow mtk_agpsd system_server:unix_dgram_socket sendto;
 
-
+#
+allow mtk_agpsd tmpfs:dir search;
