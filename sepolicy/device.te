@@ -56,6 +56,7 @@ type mtk_jpeg_device, dev_type;
 type kd_camera_hw_device, dev_type;
 type kd_camera_flashlight_device, dev_type;
 type kd_camera_hw_bus2_device, dev_type;
+type flashlight_device, dev_type;
 type MATV_device, dev_type;
 type mt_otg_test_device, dev_type;
 type mt_mdp_device, dev_type;
@@ -81,6 +82,7 @@ type sensor_device, dev_type;
 type aed_device, dev_type;
 type ccci_device, dev_type;
 type ccci_monitor_device, dev_type;
+type ccu_device, dev_type;
 type gsm0710muxd_device, dev_type;
 type eemcs_device, dev_type;
 type emd_device, dev_type;
@@ -186,6 +188,7 @@ type mbim_device, dev_type;
 type audio_ipi_device, dev_type;
 type kb_block_device,dev_type;
 type dkb_block_device,dev_type;
+type boot_para_block_device,dev_type;
 
 ##########################
 # Sensor common Devices Start
@@ -205,6 +208,7 @@ type m_batch_misc_device, dev_type;
 # Sensor bio Devices Start
 #
 type m_als_misc_device, dev_type;
+type m_bio_misc_device, dev_type;
 type m_ps_misc_device, dev_type;
 type m_baro_misc_device, dev_type;
 type m_hmdy_misc_device, dev_type;
@@ -240,3 +244,6 @@ type irrx_device, dev_type;
 
 # Sunwave support
 type sunwave_device, dev_type;
+
+# Goodix fingerprint
+type gx_fpd_device, dev_type;

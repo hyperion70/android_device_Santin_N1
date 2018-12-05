@@ -18,6 +18,7 @@ type mtk_msg_monitor_service, app_api_service, system_server_service, service_ma
 type mtk_perf_service, app_api_service, system_server_service, service_manager_type;
 type mtk_epdg_service, app_api_service, system_server_service, service_manager_type;
 type mtk_rns_service, app_api_service, system_server_service, service_manager_type;
+type mtk_permcontrol_service, app_api_service, system_server_service, service_manager_type;
 
 # Other Services
 type guiext-server_service, service_manager_type;
@@ -26,6 +27,7 @@ type pq_service, service_manager_type;
 type gas_srv_service, service_manager_type;
 type dm_agent_binder_service, service_manager_type;
 type aal_service, service_manager_type;
+type gx_fpd_service, service_manager_type;
 
 # ==============================================
 # MTK Policy Rule

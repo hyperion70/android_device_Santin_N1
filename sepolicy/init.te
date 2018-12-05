@@ -111,4 +111,4 @@ allow init mnld_data_file:sock_file { write };
 #
 allow init gsensor_device:chr_file ioctl;
 allow init msensor_device:chr_file ioctl;
-
+allow init gx_fpd_device:chr_file ioctl;

@@ -88,6 +88,7 @@ ctl.msensord     u:object_r:ctl_msensord_prop:s0
 ctl.s62xd     u:object_r:ctl_s62xd_prop:s0
 ctl.akmd8963     u:object_r:ctl_akmd8963_prop:s0
 ctl.akmd09911     u:object_r:ctl_akmd09911_prop:s0
+ctl.qmcX983d     u:object_r:ctl_qmcX983d_prop:s0
 ctl.geomagneticd     u:object_r:ctl_geomagneticd_prop:s0
 ctl.orientationd     u:object_r:ctl_orientationd_prop:s0
 ctl.emdlogger5       u:object_r:ctl_emcsmdlogger_prop:s0
@@ -140,6 +141,9 @@ persist.service.atci.   u:object_r:persist_service_atci_prop:s0
 
 #=============allow em set ril.force_apn_change property================
 ril.force_apn_change u:object_r:mtk_em_ril_apnchange_prop:s0
+
+#=============allow processes to change thermal config================
+thermal.manager.data u:object_r:mtk_thermal_config_prop:s0
 # ==============================================
 # MTK Policy Rule
 # ==============================================
@@ -173,9 +177,13 @@ soter.teei.   u:object_r:soter_teei_prop:s0
 #=============allow android log much detect==============
 logmuch.detect.value  u:object_r:logmuch_prop:s0
 persist.logmuch.detect u:object_r:logmuch_prop:s0
+logmuch.detect.delay u:object_r:logmuch_prop:s0
 
 #=============allow netd set prefix prop==============
 net.ipv6 u:object_r:mtk_net_ipv6_prop:s0
+
+#=============allow md_monitor set prop==============
+# persist.mdmmonitor u:object_r:mdmmonitor_prop:s0
 # ==============================================
 # MTK Policy Rule
 # ==============================================
@@ -262,8 +270,8 @@ persist.radio.mtk_dsbp_support       u:object_r:mtk_em_ims_prop:s0
 persist.mtk.main.attach u:object_r:persist_mtk_main_attach:s0
 
 #=============allow uniservice-pack (usp)==============
-persist.operator.    u:object_r:usp_srv_prop:s0
-persist.mtk_usp    u:object_r:usp_srv_prop:s0
+persist.operator.    u:object_r:usp_prop:s0
+persist.mtk_usp    u:object_r:usp_prop:s0
 persist.mtk_clr_code_support    u:object_r:usp_prop:s0
 persist.flight_mode_md_off    u:object_r:usp_prop:s0
 persist.mtk_epdg_support    u:object_r:usp_prop:s0
@@ -283,3 +291,7 @@ persist.imstestmode.support u:object_r:ims_mode_prop:s0
 
 #=============3g vt property===========
 persist.3gvt.em_eng_config u:object_r:mtk_em_3gvt_prop:s0
+
+#=============allow Rild ctrl ePDG PDN interface prop=============
+ril.epdg.interface.ctrl u:object_r:ril_epdg_interface_ctrl_prop:s0
+

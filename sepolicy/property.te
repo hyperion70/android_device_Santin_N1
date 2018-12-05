@@ -25,6 +25,8 @@ type ctl_dualmdlogger_prop, property_type;
 type ctl_viarild_prop, property_type;
 #=============allow mtkrild to set persist.ril property==============
 type persist_ril_prop, property_type, mtk_core_property_type;
+type ril_epdg_interface_ctrl_prop, property_type, mtk_core_property_type;
+
 #=============allow gsm0710muxd to set mux property==============
 type gsm0710muxd_prop, property_type, mtk_core_property_type;
 
@@ -98,6 +100,7 @@ type ctl_emcsmdlogger_prop, property_type;
 type ctl_eemcs_fsd_prop, property_type;
 type ctl_istd8303_prop, property_type;
 type ctl_st480_prop, property_type;
+type ctl_qmcX983d_prop, property_type;
 
 #=============allow statusd==============
 type net_cdma_mdmstat, property_type, mtk_core_property_type;
@@ -265,3 +268,5 @@ type ims_mode_prop, property_type, mtk_core_property_type;
 
 #=============allow EM set 3g vt property=============
 type mtk_em_3gvt_prop, property_type, mtk_core_property_type;
+
+type mtk_thermal_config_prop, property_type, mtk_core_property_type;

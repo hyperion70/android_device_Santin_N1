@@ -235,6 +235,11 @@ type vtservice_data_file, file_type, data_file_type;
 # File types
 type md_monitor_data_file, file_type, data_file_type;
 
+# Goodix fingerprint template file.
+type gx_fpd_lib_file, file_type, data_file_type;
+type gx_fp_lib_file, file_type, data_file_type;
+type gx_fpd_data_file, file_type, data_file_type;
+
 # Socket types
 type statusd_socket, file_type;
 type rilproxy_atci_socket, file_type;

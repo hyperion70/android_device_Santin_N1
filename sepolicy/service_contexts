@@ -29,6 +29,9 @@ GuiExtService       u:object_r:guiext-server_service:s0
 media.mmsdk         u:object_r:cameraserver_service:s0
 DmAgent             u:object_r:dm_agent_binder_service:s0
 AAL                 u:object_r:aal_service:s0
+
+# goodix fingerprint
+goodix.fp       u:object_r:gx_fpd_service:s0
 # ==============================================
 # MTK Policy Rule
 # ==============================================
@@ -47,6 +50,7 @@ TestAmPolicyMakerService    u:object_r:mtk_test_ampolicymaker_service:s0
 CrossMountManagerService    u:object_r:mtk_crossmount_service:s0
 hotknot_service             u:object_r:mtk_hotknot_service:s0
 hotknotnativeservice        u:object_r:hotknot_native_service:s0
+PermControlService          u:object_r:mtk_permcontrol_service:s0
 consumer_ir_extra 	    u:object_r:mtk_consumerir_service:s0
 PPLAgent                    u:object_r:ppl_agent_service:s0
 program_binary              u:object_r:program_binary_service:s0

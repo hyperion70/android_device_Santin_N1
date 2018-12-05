@@ -6,6 +6,7 @@
 # ==============================================
 type fuelgauged ,domain;
 type fuelgauged_exec , exec_type, file_type;
+type fuelgauged_nvram_exec, exec_type, file_type;
 
 # ==============================================
 # Android Policy Rule
