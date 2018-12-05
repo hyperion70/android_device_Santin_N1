@@ -152,7 +152,8 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
 	persist.service.acm.enable=0 \
 	camera.disable_zsl_mode=1 \
 	persist.radio.lte.chip=0 \
-	ro.config.low_ram=false
+	ro.config.low_ram=false \
+    ro.bootimage.build.fingerprint=Neffos/TP908A/N1:7.1.1/N4F26M/2371:user/release-keys
 
 # IO Scheduler
 PRODUCT_PROPERTY_OVERRIDES += \

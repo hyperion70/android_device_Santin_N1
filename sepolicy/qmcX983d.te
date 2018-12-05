@@ -1,0 +1,15 @@
+# ==============================================
+# Policy File of /system/binqmcX983d Executable File
+
+
+# ==============================================
+# Type Declaration
+# ==============================================
+
+type qmcX983d_exec , exec_type, file_type;
+type qmcX983d ,domain, domain_deprecated;
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
