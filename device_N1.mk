@@ -21,7 +21,7 @@ PRODUCT_AAPT_PREF_CONFIG := xxhdpi
 PRODUCT_AAPT_PREBUILT_DPI := xxhdpi xhdpi 280dpi hdpi tvdpi mdpi ldpi
 
 # Superuser
-WITH_SU := true
+# WITH_SU := true
 
 # Permissions
 PRODUCT_COPY_FILES += \
@@ -87,8 +87,7 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_KERNEL):kernel
 
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/configs/egl.cfg:system/vendor/egl/egl.cfg \
-
+    $(LOCAL_PATH)/configs/egl.cfg:system/vendor/egl/egl.cfg
 
 # TODO: Ramdisk
 PRODUCT_COPY_FILES += \
@@ -125,8 +124,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     gps.mt6757 \
     libcurl \
-    libepos \
-    YGPS
+    libepos
 
 # FM Radio
 PRODUCT_PACKAGES += \
@@ -134,7 +132,11 @@ PRODUCT_PACKAGES += \
     libfmjni
     
 PRODUCT_PACKAGES += \
-    EngineerMode
+    EngineerMode \
+    YGPS
+
+PRODUCT_PACKAGES += \
+    YahooWeatherProvider
 
 # Camera
 PRODUCT_PACKAGES += \
