@@ -23,4 +23,5 @@
 
     <!-- Show enabled lte option for lte device -->
     <bool name="config_enabled_lte" translatable="false">true</bool>
+    <bool name="ignore_sim_network_locked_events">true</bool>
 </resources>
