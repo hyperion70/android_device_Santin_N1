@@ -1,9 +1,9 @@
-From 72a2d6ce0debe1205220abf3bec6db49bcb97736 Mon Sep 17 00:00:00 2001
+From 7355d66e240454ab8266ddda5ea96a34a5162cbb Mon Sep 17 00:00:00 2001
 From: hyperion70 <bmaximov71@gmail.com>
-Date: Sat, 6 Oct 2018 14:09:32 +0300
+Date: Tue, 1 Jan 2019 13:51:14 +0300
 Subject: [PATCH] frameworks_native
 
-Change-Id: Ic6eec65824da6d795c952f76c34ee4d3b2bae649
+Change-Id: Ia8477da7447f42b5b6d628ebadf4c6fe2f4ad71c
 ---
  include/gui/BufferQueueCore.h        |   4 --
  include/gui/IProducerListener.h      |   3 -
@@ -18,7 +18,7 @@ Change-Id: Ic6eec65824da6d795c952f76c34ee4d3b2bae649
  libs/gui/GLConsumer.cpp              |  12 ++--
  libs/gui/IProducerListener.cpp       |  26 -------
  libs/gui/SurfaceControl.cpp          |  16 +++++
- libs/ui/Android.mk                   |  16 ++++-
+ libs/ui/Android.mk                   |  17 ++++-
  libs/ui/Fence.cpp                    |  18 +++--
  libs/ui/GraphicBuffer.cpp            |  27 +++++++
  libs/ui/mediatek/Fence.cpp           |  58 +++++++++++++++
@@ -30,7 +30,7 @@ Change-Id: Ic6eec65824da6d795c952f76c34ee4d3b2bae649
  opengl/libs/EGL/eglApi.cpp           |  70 ++++++++++++++++++
  opengl/libs/EGL/egl_entries.in       |   3 +
  vulkan/libvulkan/driver.cpp          |  72 ++-----------------
- 25 files changed, 639 insertions(+), 249 deletions(-)
+ 25 files changed, 640 insertions(+), 249 deletions(-)
  create mode 100644 include/ui/mediatek/GuiExtMonitor.h
  create mode 100644 include/ui/mediatek/IDumpTunnel.h
  create mode 100644 include/ui/mediatek/RefBaseDump.h
@@ -585,7 +585,7 @@ index d59b37c..6d732f9 100644
      if (err < 0) return err;
      return mClient->setPosition(mHandle, x, y);
 diff --git a/libs/ui/Android.mk b/libs/ui/Android.mk
-index 2b16365..d4436bc 100644
+index 2b16365..7e54a46 100644
 --- a/libs/ui/Android.mk
 +++ b/libs/ui/Android.mk
 @@ -16,7 +16,7 @@ LOCAL_PATH := $(call my-dir)
@@ -597,12 +597,11 @@ index 2b16365..d4436bc 100644
  # LOCAL_SANITIZE := integer
  
  # The static constructors and destructors in this library have not been noted to
-@@ -55,6 +55,20 @@ LOCAL_SHARED_LIBRARIES := \
- 	libsync \
+@@ -56,6 +56,21 @@ LOCAL_SHARED_LIBRARIES := \
  	libutils \
  	liblog
-+	
-+ifeq ($(BOARD_USES_MTK_HARDWARE),true)
+ 
++# --- MediaTek -------------------------------------------------------------
 +LOCAL_CFLAGS += -DMTK_HARDWARE
 +	LOCAL_CPPFLAGS += -Wno-extra-semi -Wno-zero-length-array -Wno-gnu-statement-expression
 +	LOCAL_CPPFLAGS += -D__STDC_FORMAT_MACROS
@@ -614,10 +613,12 @@ index 2b16365..d4436bc 100644
 +
 +	LOCAL_SHARED_LIBRARIES += \
 +		libbinder
-+endif
- 
++
++# --------------------------------------------------------------------------
++
  ifneq ($(BOARD_FRAMEBUFFER_FORCE_FORMAT),)
  LOCAL_CFLAGS += -DFRAMEBUFFER_FORCE_FORMAT=$(BOARD_FRAMEBUFFER_FORCE_FORMAT)
+ endif
 diff --git a/libs/ui/Fence.cpp b/libs/ui/Fence.cpp
 index 5531b23..1ed8d96 100644
 --- a/libs/ui/Fence.cpp
