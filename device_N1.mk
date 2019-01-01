@@ -99,7 +99,7 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/rootdir/init.modem.rc:root/init.modem.rc \
     $(LOCAL_PATH)/rootdir/init.mt6757.rc:root/init.mt6757.rc \
     $(LOCAL_PATH)/rootdir/init.mt6757.usb.rc:root/init.mt6757.usb.rc \
-    $(LOCAL_PATH)/rootdir/init.oae.rc:root/init.oae.rc \
+    $(LOCAL_PATH)/rootdir/init.epdg.rc:root/init.epdg.rc \
     $(LOCAL_PATH)/rootdir/init.project.rc:root/init.project.rc \
     $(LOCAL_PATH)/rootdir/init.rilproxy.rc:root/init.rilproxy.rc \
     $(LOCAL_PATH)/rootdir/init.sensor.rc:root/init.sensor.rc \

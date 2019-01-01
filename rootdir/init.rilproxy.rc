@@ -12,7 +12,7 @@ service ril-proxy /vendor/bin/rilproxy -l mtk-rilproxy.so
     socket rild3 stream 660 root radio
     socket rild4 stream 660 root radio
     socket rilproxy-atci stream 660 root radio
-    socket rilproxy-mal stream 660 radio system
+    socket rilproxy-mal stream 666 root radio
     socket sap_uim_socket1 stream 660 bluetooth bluetooth
     socket sap_uim_socket2 stream 660 bluetooth bluetooth
     socket sap_uim_socket3 stream 660 bluetooth bluetooth
