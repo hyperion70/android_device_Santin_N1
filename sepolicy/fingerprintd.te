@@ -8,3 +8,5 @@ allow fingerprintd mnt_user_file:lnk_file create_file_perms;
 allow fingerprintd self:capability { dac_override dac_read_search };
 allow fingerprintd fuse:dir create_dir_perms;
 allow fingerprintd fuse:file create_file_perms;
+#
+allow fingerprintd init:binder call;
