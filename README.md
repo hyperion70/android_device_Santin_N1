@@ -1,7 +1,7 @@
 Device Tree for Santin N1 (Malata M3 Plus)
 ===========================================
 
-Discussion https://t.me/santinn1
+Discussion https://forum.smartsworld.ru/view/proshivki-santin-n1.229/
 
 Basic   | Spec Sheet
 -------:|:-------------------------
