@@ -74,18 +74,6 @@ PRODUCT_COPY_FILES += \
     frameworks/av/services/audiopolicy/config/r_submix_audio_policy_configuration.xml:/system/etc/r_submix_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/usb_audio_policy_configuration.xml:/system/etc/usb_audio_policy_configuration.xml
     
-
-# Prebuilt Kernel
-ifeq ($(TARGET_PREBUILT_KERNEL),)
-	LOCAL_KERNEL := $(LOCAL_PATH)/prebuilts/Image.gz
-else
-	LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
-endif
-
-# Prebuilt kernel
-PRODUCT_COPY_FILES += \
-    $(LOCAL_KERNEL):kernel
-
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/egl.cfg:system/vendor/egl/egl.cfg
 
